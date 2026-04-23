@@ -1,0 +1,2293 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0c1220">
+<meta name="description" content="Mówiący zegar po polsku i angielsku. Minutnik, alarmy.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Zegar">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="64x64" href="icon-64.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Mówiący Zegar — Która jest godzina?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,500&family=JetBrains+Mono:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0c1220;
+    --ink-deep: #05080f;
+    --ink-soft: #14192b;
+    --ink-card: #0f1528;
+    --cream: #f4ecd8;
+    --cream-soft: #cdc4ad;
+    --amber: #f4a737;
+    --amber-glow: #ffcf7a;
+    --burgundy: #b54a37;
+    --teal: #6ec3b7;
+    --muted: rgba(244, 236, 216, 0.45);
+    --hairline: rgba(244, 236, 216, 0.12);
+    --danger: #e86a5c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 85% 15%, rgba(244, 167, 55, 0.18), transparent 45%),
+      radial-gradient(circle at 10% 90%, rgba(181, 74, 55, 0.22), transparent 50%),
+      linear-gradient(180deg, var(--ink-deep) 0%, var(--ink) 100%);
+    background-attachment: fixed;
+    color: var(--cream);
+    font-family: 'Fraunces', Georgia, serif;
+    font-feature-settings: "ss01", "ss02";
+    overflow-x: hidden;
+    position: relative;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 1;
+    opacity: 0.07;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 0.96  0 0 0 0 0.92  0 0 0 0 0.84  0 0 0 0.7 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    mix-blend-mode: overlay;
+  }
+
+  .frame {
+    position: relative; z-index: 2;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: clamp(1rem, 3vw, 2.5rem) clamp(1rem, 3vw, 3rem);
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+
+  /* ─── TOPBAR ─── */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--hairline);
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 0.7rem;
+    font-family: 'Fraunces';
+    font-weight: 900;
+    font-size: clamp(1.15rem, 2vw, 1.5rem);
+    letter-spacing: -0.02em;
+  }
+  .brand .dot {
+    width: 9px; height: 9px;
+    background: var(--amber);
+    border-radius: 50%;
+    box-shadow: 0 0 18px 2px var(--amber-glow);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .brand .sub {
+    font-weight: 500;
+    font-style: italic;
+    color: var(--muted);
+    font-size: 0.72em;
+    margin-left: 0.15rem;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.55; transform: scale(0.85); }
+  }
+
+  /* chips */
+  .chip-row { display: flex; gap: 0.45rem; flex-wrap: wrap; align-items: center; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    background: transparent;
+    border: 1px solid var(--hairline);
+    color: var(--cream-soft);
+    padding: 0.45rem 0.8rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 999px;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .chip:hover { border-color: var(--amber); color: var(--cream); }
+  .chip.primary {
+    background: var(--amber); color: var(--ink-deep);
+    border-color: var(--amber); font-weight: 500;
+  }
+  .chip.primary:hover { background: var(--amber-glow); }
+  .chip.on {
+    background: rgba(244, 167, 55, 0.15);
+    border-color: var(--amber); color: var(--amber);
+  }
+  .chip svg { width: 12px; height: 12px; flex-shrink: 0; }
+  .chip[hidden] { display: none !important; }
+  .chip .led {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor; box-shadow: 0 0 6px currentColor;
+  }
+  .chip.on .led { animation: pulse 1.8s ease-in-out infinite; }
+
+  /* secondary meta bar */
+  .subbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid var(--hairline);
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cream-soft);
+    display: flex; gap: 1.25rem; flex-wrap: wrap;
+  }
+  .meta strong {
+    color: var(--amber);
+    font-weight: 500;
+    margin-left: 0.4rem;
+  }
+
+  /* language seg */
+  .seg {
+    display: inline-flex;
+    background: var(--ink-soft);
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    padding: 3px;
+    gap: 0;
+  }
+  .seg button {
+    background: transparent; border: none;
+    color: var(--cream-soft);
+    padding: 0.4rem 0.9rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 999px;
+    transition: all 0.2s;
+  }
+  .seg button.on {
+    background: var(--amber);
+    color: var(--ink-deep);
+    font-weight: 500;
+  }
+  .seg button:not(.on):hover {
+    color: var(--cream);
+  }
+
+  /* ─── TABS ─── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    margin: 1.25rem 0 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .tab {
+    background: transparent; border: none;
+    color: var(--cream-soft);
+    padding: 0.9rem 1.3rem;
+    font-family: 'Fraunces';
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s;
+    letter-spacing: -0.01em;
+  }
+  .tab::after {
+    content: '';
+    position: absolute;
+    left: 1.3rem; right: 1.3rem; bottom: -1px;
+    height: 2px;
+    background: var(--amber);
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 0.25s cubic-bezier(.2,.8,.2,1);
+  }
+  .tab:hover { color: var(--cream); }
+  .tab.active { color: var(--amber); }
+  .tab.active::after { transform: scaleX(1); }
+  .tab .count {
+    display: inline-block;
+    margin-left: 0.4rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    background: var(--hairline);
+    color: var(--cream-soft);
+    border-radius: 999px;
+    vertical-align: 0.15em;
+  }
+  .tab.active .count { background: var(--amber); color: var(--ink-deep); }
+
+  .view { display: none; }
+  .view.active { display: block; animation: fadeIn 0.35s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ─── CLOCK VIEW ─── */
+  .clock-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: clamp(2rem, 5vw, 4.5rem);
+    align-items: center;
+    padding: clamp(1.5rem, 4vw, 3rem) 0;
+  }
+  @media (max-width: 820px) {
+    .clock-grid { grid-template-columns: 1fr; gap: 2rem; }
+  }
+
+  /* analog */
+  .analog-wrap {
+    width: clamp(220px, 30vw, 340px);
+    aspect-ratio: 1 / 1;
+    margin: 0 auto;
+    position: relative;
+  }
+  .analog {
+    width: 100%; height: 100%;
+    display: block;
+    filter: drop-shadow(0 10px 30px rgba(0,0,0,0.4));
+  }
+  .analog .face-ring { stroke: var(--amber); fill: none; }
+  .analog .face-bg { fill: var(--ink-deep); }
+  .analog .mark { stroke: var(--cream); stroke-linecap: round; }
+  .analog .mark-major { stroke: var(--cream); stroke-width: 3; }
+  .analog .mark-minor { stroke: var(--cream-soft); stroke-width: 1.2; opacity: 0.6; }
+  .analog .num {
+    fill: var(--cream);
+    font-family: 'Fraunces';
+    font-weight: 700;
+    font-size: 18px;
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+  .analog .hand-hour, .analog .hand-min, .analog .hand-sec {
+    transform-origin: 100px 100px;
+    transition: none;
+  }
+  .analog .hand-hour { stroke: var(--cream); stroke-width: 5; stroke-linecap: round; }
+  .analog .hand-min  { stroke: var(--cream); stroke-width: 3; stroke-linecap: round; }
+  .analog .hand-sec  { stroke: var(--amber); stroke-width: 1.5; stroke-linecap: round; }
+  .analog .center-dot { fill: var(--amber); }
+  .analog .center-inner { fill: var(--ink-deep); }
+
+  /* digital side */
+  .digital-side { min-width: 0; }
+
+  .stage-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 0.7rem;
+  }
+  .stage-label::before {
+    content: ''; width: 24px; height: 1px; background: var(--amber);
+  }
+
+  .digital {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 300;
+    font-size: clamp(4rem, 12vw, 9rem);
+    line-height: 0.9;
+    letter-spacing: -0.05em;
+    color: var(--cream);
+    display: flex; align-items: baseline;
+    text-shadow: 0 0 60px rgba(244, 167, 55, 0.1);
+  }
+  .digital .sep {
+    color: var(--amber);
+    animation: blink 1s steps(2, end) infinite;
+    margin: 0 0.03em;
+  }
+  @keyframes blink { 50% { opacity: 0.15; } }
+
+  .seconds-row {
+    display: flex; align-items: center;
+    gap: 1.25rem;
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--hairline);
+  }
+  .seconds-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.2rem; font-weight: 500;
+    color: var(--amber);
+    min-width: 3ch;
+  }
+  .progress {
+    flex: 1; height: 2px;
+    background: var(--hairline);
+    position: relative; overflow: hidden;
+  }
+  .progress::after {
+    content: '';
+    position: absolute; inset: 0 auto 0 0;
+    width: var(--pct, 0%);
+    background: linear-gradient(90deg, var(--burgundy), var(--amber));
+    transition: width 0.4s ease-out;
+  }
+  .period {
+    font-family: 'Fraunces'; font-style: italic; font-weight: 500;
+    color: var(--cream-soft); font-size: 0.95rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+  }
+
+  /* phrase */
+  .phrase-stage { margin-top: 2rem; }
+  .phrase {
+    font-family: 'Fraunces';
+    font-weight: 500;
+    font-size: clamp(1.6rem, 3.5vw, 2.6rem);
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    color: var(--cream);
+    min-height: 2.5em;
+  }
+  .phrase .w {
+    display: inline-block;
+    opacity: 0.55;
+    transition: all 0.35s cubic-bezier(.2,.8,.2,1);
+    padding: 0 0.05em;
+  }
+  .phrase .w.active {
+    opacity: 1; color: var(--amber);
+    transform: translateY(-2px);
+    text-shadow: 0 0 30px rgba(244, 167, 55, 0.35);
+  }
+  .phrase .w.spoken { opacity: 1; color: var(--cream); }
+  .phrase-hint {
+    margin-top: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* speaker bars */
+  .speaker {
+    display: inline-flex; align-items: flex-end;
+    gap: 3px; height: 0.9em;
+    margin-left: 0.5rem; vertical-align: middle;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .speaker.on { opacity: 1; }
+  .speaker i {
+    display: block; width: 3px;
+    background: var(--amber); border-radius: 2px;
+    animation: bars 0.9s ease-in-out infinite;
+  }
+  .speaker i:nth-child(1) { height: 40%; animation-delay: -0.1s; }
+  .speaker i:nth-child(2) { height: 80%; animation-delay: -0.3s; }
+  .speaker i:nth-child(3) { height: 60%; animation-delay: -0.5s; }
+  .speaker i:nth-child(4) { height: 90%; animation-delay: -0.7s; }
+  @keyframes bars { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+
+  /* ─── CONTROL ROW ─── */
+  .controls {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--hairline);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.9rem;
+    align-items: end;
+  }
+  .field { display: flex; flex-direction: column; gap: 0.45rem; }
+  .field label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  select, input[type="text"], input[type="time"], input[type="number"] {
+    background: var(--ink-soft);
+    border: 1px solid var(--hairline);
+    color: var(--cream);
+    padding: 0.7rem 0.9rem;
+    font-family: 'Fraunces';
+    font-size: 0.98rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 3px;
+    width: 100%;
+  }
+  input[type="text"], input[type="time"], input[type="number"] { cursor: text; }
+  select:hover, input:hover { border-color: var(--amber); }
+  select:focus, input:focus {
+    outline: none;
+    border-color: var(--amber);
+    box-shadow: 0 0 0 3px rgba(244, 167, 55, 0.15);
+  }
+  .seg-tabs { display: flex; padding: 3px; gap: 2px; background: var(--ink-soft); border: 1px solid var(--hairline); border-radius: 3px; }
+  .seg-tabs button {
+    flex: 1; background: transparent; border: none;
+    color: var(--cream-soft);
+    padding: 0.55rem 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+  .seg-tabs button.on {
+    background: var(--amber); color: var(--ink-deep);
+    font-weight: 500;
+  }
+
+  .speak-btn {
+    background: var(--cream); color: var(--ink-deep);
+    border: none;
+    padding: 0.9rem 1.25rem;
+    font-family: 'Fraunces'; font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    gap: 0.55rem;
+    transition: all 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .speak-btn::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, var(--amber), var(--amber-glow));
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+  }
+  .speak-btn span, .speak-btn svg { position: relative; z-index: 1; }
+  .speak-btn:hover::before { transform: translateX(0); }
+  .speak-btn:active { transform: scale(0.98); }
+  .speak-btn svg { width: 14px; height: 14px; }
+
+  /* ─── TIMER VIEW ─── */
+  .timer-stage {
+    padding: clamp(2rem, 5vw, 3.5rem) 0;
+    text-align: center;
+  }
+  .timer-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 300;
+    font-size: clamp(5rem, 16vw, 11rem);
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    color: var(--cream);
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: center;
+    margin-bottom: 1rem;
+    position: relative;
+  }
+  .timer-display.running { color: var(--amber); }
+  .timer-display.finished {
+    animation: flash 0.8s ease-in-out infinite;
+    color: var(--burgundy);
+  }
+  @keyframes flash { 50% { opacity: 0.3; } }
+
+  .timer-progress {
+    max-width: 600px;
+    margin: 0 auto 2rem;
+    height: 3px;
+    background: var(--hairline);
+    position: relative;
+    overflow: hidden;
+  }
+  .timer-progress::after {
+    content: '';
+    position: absolute; inset: 0 auto 0 0;
+    width: var(--pct, 0%);
+    background: linear-gradient(90deg, var(--amber), var(--burgundy));
+    transition: width 0.4s ease-out;
+  }
+  .timer-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1.5rem;
+  }
+  .timer-presets {
+    display: flex;
+    justify-content: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  .timer-preset {
+    background: transparent;
+    border: 1px solid var(--hairline);
+    color: var(--cream);
+    padding: 0.7rem 1.2rem;
+    font-family: 'Fraunces';
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    min-width: 90px;
+  }
+  .timer-preset:hover { border-color: var(--amber); color: var(--amber); }
+  .timer-preset.active { background: var(--amber); color: var(--ink-deep); border-color: var(--amber); }
+
+  .timer-custom {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.7rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .timer-custom label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .timer-custom input {
+    width: 90px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .timer-actions {
+    display: flex;
+    justify-content: center;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+  }
+  .timer-btn {
+    background: var(--cream);
+    color: var(--ink-deep);
+    border: none;
+    padding: 0.9rem 1.8rem;
+    font-family: 'Fraunces';
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 0.5rem;
+  }
+  .timer-btn.primary { background: var(--amber); }
+  .timer-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(244, 167, 55, 0.2); }
+  .timer-btn:active { transform: translateY(0); }
+  .timer-btn.ghost {
+    background: transparent;
+    color: var(--cream);
+    border: 1px solid var(--hairline);
+  }
+  .timer-btn.ghost:hover { border-color: var(--amber); color: var(--amber); }
+
+  /* ─── ALARMS VIEW ─── */
+  .alarms-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 2rem 0 1.25rem;
+    border-bottom: 1px solid var(--hairline);
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .alarms-head h2 {
+    font-family: 'Fraunces';
+    font-weight: 700;
+    font-size: clamp(1.4rem, 3vw, 1.9rem);
+    letter-spacing: -0.02em;
+  }
+  .alarms-head h2 em {
+    font-style: italic;
+    color: var(--cream-soft);
+    font-weight: 400;
+    font-size: 0.85em;
+    margin-left: 0.4rem;
+  }
+  .add-alarm {
+    background: var(--amber);
+    color: var(--ink-deep);
+    border: none;
+    padding: 0.75rem 1.2rem;
+    font-family: 'Fraunces';
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    border-radius: 3px;
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    transition: all 0.2s;
+  }
+  .add-alarm:hover { background: var(--amber-glow); }
+  .add-alarm svg { width: 16px; height: 16px; }
+
+  .alarms-list {
+    padding: 1.25rem 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .alarm-card {
+    background: var(--ink-card);
+    border: 1px solid var(--hairline);
+    border-left: 3px solid var(--hairline);
+    padding: 1.1rem 1.25rem;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1.25rem;
+    align-items: center;
+    border-radius: 3px;
+    transition: all 0.2s;
+  }
+  .alarm-card.enabled {
+    border-left-color: var(--amber);
+  }
+  .alarm-card.enabled .time { color: var(--amber); }
+  .alarm-card:hover { border-color: var(--hairline); background: #121830; }
+  .alarm-card .time {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    letter-spacing: -0.02em;
+    color: var(--cream-soft);
+    min-width: 4ch;
+  }
+  .alarm-card .middle { min-width: 0; }
+  .alarm-card .text {
+    font-family: 'Fraunces';
+    font-style: italic;
+    font-size: 1.05rem;
+    color: var(--cream);
+    margin-bottom: 0.4rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .alarm-card .days {
+    display: flex; gap: 0.3rem;
+    flex-wrap: wrap;
+  }
+  .alarm-card .day-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    background: var(--hairline);
+    color: var(--cream-soft);
+    border-radius: 999px;
+  }
+  .alarm-card .day-pill.on {
+    background: rgba(244, 167, 55, 0.2);
+    color: var(--amber);
+  }
+  .alarm-card .lang-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    padding: 2px 6px;
+    margin-left: 0.4rem;
+    background: var(--ink-soft);
+    color: var(--cream-soft);
+    border-radius: 3px;
+    text-transform: uppercase;
+  }
+  .alarm-card .actions {
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .icon-btn {
+    background: transparent;
+    border: 1px solid var(--hairline);
+    color: var(--cream-soft);
+    width: 34px; height: 34px;
+    border-radius: 3px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .icon-btn:hover { border-color: var(--amber); color: var(--amber); }
+  .icon-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+  .icon-btn svg { width: 14px; height: 14px; }
+
+  /* toggle switch */
+  .switch {
+    position: relative;
+    width: 42px; height: 22px;
+    background: var(--ink-soft);
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .switch::after {
+    content: '';
+    position: absolute;
+    top: 1px; left: 1px;
+    width: 18px; height: 18px;
+    background: var(--cream-soft);
+    border-radius: 50%;
+    transition: all 0.25s cubic-bezier(.2,.8,.2,1);
+  }
+  .switch.on { background: var(--amber); border-color: var(--amber); }
+  .switch.on::after { left: 21px; background: var(--ink-deep); }
+
+  /* alarm form */
+  .alarm-form {
+    background: var(--ink-card);
+    border: 1px solid var(--amber);
+    padding: clamp(1.25rem, 3vw, 2rem);
+    margin: 1.25rem 0;
+    border-radius: 3px;
+    display: none;
+  }
+  .alarm-form.open { display: block; animation: fadeIn 0.3s ease-out; }
+  .alarm-form h3 {
+    font-family: 'Fraunces';
+    font-weight: 700;
+    font-size: 1.3rem;
+    margin-bottom: 1.25rem;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.8rem 1.25rem;
+    align-items: center;
+    margin-bottom: 1.25rem;
+  }
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; gap: 0.35rem 0; }
+    .form-grid > label { margin-top: 0.5rem; }
+  }
+  .form-grid label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .day-chips {
+    display: flex; gap: 0.3rem; flex-wrap: wrap;
+  }
+  .day-chip {
+    background: transparent;
+    border: 1px solid var(--hairline);
+    color: var(--cream-soft);
+    padding: 0.45rem 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    min-width: 42px;
+  }
+  .day-chip.on {
+    background: var(--amber); color: var(--ink-deep);
+    border-color: var(--amber);
+  }
+  .quick-days {
+    display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem;
+  }
+  .quick-days button {
+    background: transparent;
+    border: none;
+    color: var(--cream-soft);
+    font-family: 'Fraunces';
+    font-style: italic;
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px dashed var(--hairline);
+    transition: color 0.2s;
+  }
+  .quick-days button:hover { color: var(--amber); border-color: var(--amber); }
+
+  .form-actions {
+    display: flex; justify-content: flex-end; gap: 0.6rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--hairline);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--cream-soft);
+  }
+  .empty-state svg {
+    width: 48px; height: 48px;
+    opacity: 0.3;
+    margin-bottom: 1rem;
+  }
+  .empty-state p {
+    font-family: 'Fraunces';
+    font-style: italic;
+    font-size: 1.05rem;
+    max-width: 32ch;
+    margin: 0 auto;
+  }
+
+  /* help modal — reuse */
+  .backdrop {
+    position: fixed; inset: 0;
+    background: rgba(5, 8, 15, 0.85);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    z-index: 50;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.5rem;
+  }
+  .backdrop.open { opacity: 1; pointer-events: auto; }
+  .panel {
+    background: var(--ink);
+    border: 1px solid var(--hairline);
+    max-width: 640px; width: 100%;
+    max-height: 90vh; overflow-y: auto;
+    padding: clamp(1.5rem, 4vw, 2.5rem);
+    position: relative;
+    transform: translateY(12px);
+    transition: transform 0.3s cubic-bezier(.2,.8,.2,1);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+  }
+  .backdrop.open .panel { transform: translateY(0); }
+  .panel h2 {
+    font-family: 'Fraunces'; font-weight: 700;
+    font-size: clamp(1.4rem, 3vw, 1.9rem);
+    letter-spacing: -0.02em;
+    margin-bottom: 0.4rem;
+  }
+  .panel .lead {
+    color: var(--cream-soft);
+    font-style: italic;
+    margin-bottom: 1.5rem; font-size: 0.95rem;
+  }
+  .panel .close {
+    position: absolute; top: 1rem; right: 1rem;
+    background: transparent;
+    border: 1px solid var(--hairline);
+    color: var(--cream);
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    cursor: pointer; font-size: 1.2rem; line-height: 1;
+    transition: all 0.2s;
+  }
+  .panel .close:hover { border-color: var(--amber); color: var(--amber); }
+  .plat { padding: 1rem 0; border-bottom: 1px solid var(--hairline); }
+  .plat:last-child { border-bottom: none; }
+  .plat h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 0.5rem; font-weight: 500;
+  }
+  .plat ol {
+    padding-left: 1.3rem;
+    color: var(--cream-soft);
+    font-size: 0.92rem; line-height: 1.55;
+  }
+  .plat ol li { margin-bottom: 0.25rem; }
+  .plat ol li strong { color: var(--cream); font-weight: 500; }
+  .notice {
+    margin-top: 1.25rem;
+    padding: 0.85rem 1rem;
+    background: rgba(181, 74, 55, 0.12);
+    border-left: 3px solid var(--burgundy);
+    font-size: 0.86rem;
+    color: var(--cream-soft);
+    line-height: 1.5; font-style: italic;
+  }
+  .notice strong { color: var(--cream); font-style: normal; }
+
+  /* footer */
+  footer {
+    margin-top: auto;
+    padding-top: 1.25rem;
+    padding-bottom: 0.5rem;
+    border-top: 1px solid var(--hairline);
+    display: flex; justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 2.5rem;
+  }
+  footer em { color: var(--amber); font-style: normal; }
+
+  /* reveal */
+  .reveal { opacity: 0; transform: translateY(8px); animation: reveal 0.8s cubic-bezier(.2,.8,.2,1) forwards; }
+  .reveal.d1 { animation-delay: 0.05s; }
+  .reveal.d2 { animation-delay: 0.15s; }
+  .reveal.d3 { animation-delay: 0.3s; }
+  @keyframes reveal { to { opacity: 1; transform: translateY(0); } }
+
+  /* firing alarm overlay */
+  .firing {
+    position: fixed; inset: 0;
+    background: var(--ink-deep);
+    z-index: 100;
+    display: none;
+    align-items: center; justify-content: center;
+    flex-direction: column;
+    padding: 2rem;
+    text-align: center;
+  }
+  .firing.on { display: flex; animation: firingBg 2s ease-in-out infinite; }
+  @keyframes firingBg {
+    0%, 100% { background: var(--ink-deep); }
+    50% { background: #2a1410; }
+  }
+  .firing .time-big {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(4rem, 12vw, 8rem);
+    color: var(--amber);
+    font-weight: 300;
+    letter-spacing: -0.03em;
+    margin-bottom: 1.5rem;
+  }
+  .firing .text-big {
+    font-family: 'Fraunces';
+    font-style: italic;
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+    color: var(--cream);
+    max-width: 22ch;
+    line-height: 1.2;
+    margin-bottom: 2.5rem;
+  }
+  .firing .dismiss {
+    background: var(--amber);
+    color: var(--ink-deep);
+    border: none;
+    padding: 1rem 2.5rem;
+    font-family: 'Fraunces';
+    font-weight: 700;
+    font-size: 1.1rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+  }
+  .firing .dismiss:hover { background: var(--amber-glow); transform: scale(1.05); }
+</style>
+</head>
+<body>
+
+<div class="frame">
+
+  <!-- TOPBAR -->
+  <header class="topbar reveal d1">
+    <div class="brand">
+      <span class="dot"></span>
+      <span>Mówiący Zegar</span>
+      <span class="sub" data-t="brandSub">· na żywo</span>
+    </div>
+    <div class="chip-row">
+      <button class="chip" id="wakeChip" title="Blokada wygaszania ekranu">
+        <span class="led"></span>
+        <span id="wakeLbl" data-t="wakeOff">Ekran śpi</span>
+      </button>
+      <button class="chip primary" id="installChip" hidden>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span data-t="installApp">Zainstaluj aplikację</span>
+      </button>
+      <button class="chip" id="helpChip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 1 1 5.8 1c0 2-3 2-3 4M12 17h.01"/></svg>
+        <span data-t="howToInstall">Jak zainstalować?</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- SUBBAR -->
+  <div class="subbar reveal d1">
+    <div class="meta">
+      <span><span data-t="metaDate">Data</span> <strong id="date"></strong></span>
+      <span><span data-t="metaDay">Dzień</span> <strong id="weekday"></strong></span>
+    </div>
+    <div class="seg" id="langSeg">
+      <button data-lang="pl" class="on">PL · Polski</button>
+      <button data-lang="en">EN · English</button>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <nav class="tabs reveal d1" id="tabs">
+    <button class="tab active" data-view="clock" data-t="tabClock">Zegar</button>
+    <button class="tab" data-view="timer" data-t="tabTimer">Minutnik</button>
+    <button class="tab" data-view="alarms">
+      <span data-t="tabAlarms">Alarmy</span>
+      <span class="count" id="alarmsCount">0</span>
+    </button>
+  </nav>
+
+  <!-- CLOCK VIEW -->
+  <section class="view active" id="view-clock">
+    <div class="clock-grid reveal d2">
+      <!-- ANALOG -->
+      <div class="analog-wrap">
+        <svg class="analog" viewBox="0 0 200 200" aria-hidden="true">
+          <circle class="face-bg" cx="100" cy="100" r="95"/>
+          <circle class="face-ring" cx="100" cy="100" r="95" stroke-width="1.5"/>
+          <circle class="face-ring" cx="100" cy="100" r="89" stroke-width="0.5" opacity="0.5"/>
+          <g id="analogMarks"></g>
+          <g id="analogNums"></g>
+          <line class="hand-hour" id="handHour" x1="100" y1="100" x2="100" y2="55"/>
+          <line class="hand-min"  id="handMin"  x1="100" y1="100" x2="100" y2="35"/>
+          <line class="hand-sec"  id="handSec"  x1="100" y1="108" x2="100" y2="28"/>
+          <circle class="center-dot" cx="100" cy="100" r="5"/>
+          <circle class="center-inner" cx="100" cy="100" r="1.8"/>
+        </svg>
+      </div>
+
+      <!-- DIGITAL SIDE -->
+      <div class="digital-side">
+        <div class="stage-label" data-t="currentTime">Aktualny czas</div>
+
+        <div class="digital">
+          <span id="hh">00</span>
+          <span class="sep">:</span>
+          <span id="mm">00</span>
+        </div>
+
+        <div class="seconds-row">
+          <span class="seconds-num" id="ss">00</span>
+          <div class="progress" id="progress" style="--pct:0%"></div>
+          <span class="period" id="period">AM</span>
+        </div>
+
+        <div class="phrase-stage">
+          <div class="stage-label">
+            <span data-t="howToSay">Jak to powiedzieć</span>
+            <span class="speaker" id="speaker"><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="phrase" id="phrase"></div>
+          <div class="phrase-hint" id="nextInfo"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLOCK CONTROLS -->
+    <div class="controls reveal d3">
+      <div class="field">
+        <label data-t="labelVoice">Głos lektora</label>
+        <select id="voice"></select>
+      </div>
+      <div class="field">
+        <label data-t="labelFormat">Format godziny</label>
+        <div class="seg-tabs" id="hourModeSeg">
+          <button data-mode="12" class="on">12h</button>
+          <button data-mode="24">24h</button>
+        </div>
+      </div>
+      <div class="field">
+        <label data-t="labelInterval">Zapowiedź głosowa</label>
+        <select id="interval">
+          <option value="0" data-t="intervalOff">Wyłączona</option>
+          <option value="1" selected data-t="intervalMin">Co minutę</option>
+          <option value="5" data-t="interval5">Co 5 minut</option>
+          <option value="10" data-t="interval10">Co 10 minut</option>
+          <option value="15" data-t="interval15">Co kwadrans</option>
+          <option value="30" data-t="interval30">Co pół godziny</option>
+          <option value="60" data-t="interval60">Co godzinę</option>
+        </select>
+      </div>
+      <button class="speak-btn" id="speakBtn">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <span data-t="speakNow">Powtórz teraz</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- TIMER VIEW -->
+  <section class="view" id="view-timer">
+    <div class="timer-stage reveal d2">
+      <div class="timer-display" id="timerDisplay">05:00</div>
+      <div class="timer-progress" id="timerProgress" style="--pct:0%"></div>
+      <div class="timer-label" id="timerLabel" data-t="timerReady">Gotowy do startu</div>
+
+      <div class="timer-presets" id="timerPresets">
+        <button class="timer-preset" data-mins="1">1 min</button>
+        <button class="timer-preset" data-mins="3">3 min</button>
+        <button class="timer-preset active" data-mins="5">5 min</button>
+        <button class="timer-preset" data-mins="10">10 min</button>
+        <button class="timer-preset" data-mins="15">15 min</button>
+        <button class="timer-preset" data-mins="30">30 min</button>
+      </div>
+
+      <div class="timer-custom">
+        <label data-t="customLabel">Lub ustaw</label>
+        <input type="number" id="timerInput" min="1" max="180" step="1" value="5" inputmode="numeric">
+        <label data-t="customUnit">minut</label>
+      </div>
+
+      <div class="timer-actions">
+        <button class="timer-btn primary" id="timerStart">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
+          <span data-t="btnStart">Start</span>
+        </button>
+        <button class="timer-btn ghost" id="timerReset">
+          <span data-t="btnReset">Reset</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ALARMS VIEW -->
+  <section class="view" id="view-alarms">
+    <div class="alarms-head">
+      <h2>
+        <span data-t="yourAlarms">Twoje alarmy</span>
+        <em id="alarmsStatus"></em>
+      </h2>
+      <button class="add-alarm" id="addAlarmBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+        <span data-t="addAlarm">Dodaj alarm</span>
+      </button>
+    </div>
+
+    <!-- ALARM FORM -->
+    <div class="alarm-form" id="alarmForm">
+      <h3 id="alarmFormTitle" data-t="newAlarm">Nowy alarm</h3>
+      <div class="form-grid">
+        <label data-t="formTime">Godzina</label>
+        <input type="time" id="alarmTime" value="07:30">
+
+        <label data-t="formPhrase">Fraza</label>
+        <input type="text" id="alarmText" placeholder="np. Dzień dobry, pora wstawać" maxlength="140">
+
+        <label data-t="formDays">Dni</label>
+        <div>
+          <div class="day-chips" id="dayChips"></div>
+          <div class="quick-days">
+            <button data-quick="all" data-t="qAll">Codziennie</button>
+            <button data-quick="week" data-t="qWeek">Dni powszednie</button>
+            <button data-quick="weekend" data-t="qWeekend">Weekend</button>
+            <button data-quick="none" data-t="qNone">Wyczyść</button>
+          </div>
+        </div>
+
+        <label data-t="formLang">Język</label>
+        <div class="seg-tabs" id="alarmLangSeg" style="max-width:220px">
+          <button data-lang="pl" class="on">PL</button>
+          <button data-lang="en">EN</button>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="timer-btn ghost" id="alarmCancel" data-t="btnCancel">Anuluj</button>
+        <button class="timer-btn primary" id="alarmSave" data-t="btnSave">Zapisz alarm</button>
+      </div>
+    </div>
+
+    <div class="alarms-list" id="alarmsList"></div>
+  </section>
+
+  <footer>
+    <span data-t="footerL">Polski · Web Speech API</span>
+    <span><span data-t="footerR">Strefa czasowa:</span> <em id="tz"></em></span>
+  </footer>
+
+</div>
+
+<!-- Firing alarm overlay -->
+<div class="firing" id="firing" role="alertdialog" aria-modal="true">
+  <div class="time-big" id="firingTime">00:00</div>
+  <div class="text-big" id="firingText">—</div>
+  <button class="dismiss" id="firingDismiss" data-t="dismiss">Wyłącz</button>
+</div>
+
+<!-- Help modal -->
+<div class="backdrop" id="helpBackdrop" role="dialog" aria-modal="true">
+  <div class="panel">
+    <button class="close" id="helpClose" aria-label="Zamknij">×</button>
+    <h2 data-t="helpTitle">Jak zainstalować zegar jako aplikację</h2>
+    <p class="lead" data-t="helpLead">Instalacja sprawia, że zegar działa w osobnym oknie i łatwiej go włączyć.</p>
+
+    <div class="plat">
+      <h3>Android · Chrome / Edge</h3>
+      <ol>
+        <li>Stuknij przycisk <strong>Zainstaluj aplikację</strong> u góry.</li>
+        <li>Albo menu przeglądarki → <strong>Dodaj do ekranu głównego</strong>.</li>
+      </ol>
+    </div>
+    <div class="plat">
+      <h3>iPhone / iPad · Safari</h3>
+      <ol>
+        <li>Przycisk <strong>Udostępnij</strong> (kwadrat ze strzałką) na dole.</li>
+        <li>Wybierz <strong>Do ekranu początkowego</strong> i potwierdź.</li>
+      </ol>
+    </div>
+    <div class="plat">
+      <h3>Komputer · Chrome / Edge</h3>
+      <ol>
+        <li>Ikona <strong>⊕</strong> w prawej części paska adresu — kliknij.</li>
+      </ol>
+    </div>
+    <div class="plat">
+      <h3>Mówienie przy zgaszonym ekranie</h3>
+      <ol>
+        <li>Włącz chip <strong>Nie pozwól zasnąć</strong> u góry.</li>
+        <li>Na <strong>iOS</strong> to jedyna pewna droga — Apple wyłącza syntezę po lock screen.</li>
+        <li>Na <strong>Androidzie</strong> jako zainstalowana aplikacja mówi też z wygaszonym ekranem.</li>
+      </ol>
+    </div>
+
+    <p class="notice">
+      <strong>Uwaga:</strong> pełna instalacja PWA wymaga serwowania z serwera (http/https). Jeśli klikasz plik z dysku, aplikacja działa, ale przycisk <em>Zainstaluj</em> może się nie pojawić. README ma jedną linijkę do uruchomienia lokalnego serwera.
+    </p>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   MÓWIĄCY ZEGAR v2 — clock · timer · alarms · PL/EN
+   ========================================================================= */
+
+// ── i18n ────────────────────────────────────────────────────────────────
+const T = {
+  pl: {
+    brandSub: '· na żywo',
+    wakeOff: 'Ekran śpi', wakeOn: 'Ekran nie śpi',
+    installApp: 'Zainstaluj aplikację', howToInstall: 'Jak zainstalować?',
+    metaDate: 'Data', metaDay: 'Dzień',
+    tabClock: 'Zegar', tabTimer: 'Minutnik', tabAlarms: 'Alarmy',
+    currentTime: 'Aktualny czas', howToSay: 'Jak to powiedzieć',
+    labelVoice: 'Głos lektora', labelFormat: 'Format godziny', labelInterval: 'Zapowiedź głosowa',
+    intervalOff: 'Wyłączona', intervalMin: 'Co minutę', interval5: 'Co 5 minut',
+    interval10: 'Co 10 minut', interval15: 'Co kwadrans', interval30: 'Co pół godziny', interval60: 'Co godzinę',
+    speakNow: 'Powtórz teraz',
+    timerReady: 'Gotowy do startu', timerRunning: 'Odliczanie…', timerPaused: 'Wstrzymane', timerDone: 'Koniec czasu!',
+    customLabel: 'Lub ustaw', customUnit: 'minut', btnStart: 'Start', btnPause: 'Pauza', btnResume: 'Wznów', btnReset: 'Reset',
+    yourAlarms: 'Twoje alarmy', addAlarm: 'Dodaj alarm', newAlarm: 'Nowy alarm', editAlarm: 'Edytuj alarm',
+    formTime: 'Godzina', formPhrase: 'Fraza', formDays: 'Dni', formLang: 'Język',
+    qAll: 'Codziennie', qWeek: 'Dni powszednie', qWeekend: 'Weekend', qNone: 'Wyczyść',
+    btnCancel: 'Anuluj', btnSave: 'Zapisz alarm',
+    dismiss: 'Wyłącz',
+    helpTitle: 'Jak zainstalować zegar jako aplikację',
+    helpLead: 'Instalacja sprawia, że zegar działa w osobnym oknie i łatwiej go włączyć.',
+    footerL: 'Polski · Web Speech API', footerR: 'Strefa czasowa:',
+    days: ['Pn','Wt','Śr','Cz','Pt','Sb','Nd'],
+    weekdays: ['niedziela','poniedziałek','wtorek','środa','czwartek','piątek','sobota'],
+    months: ['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','września','października','listopada','grudnia'],
+    noAlarms: 'Jeszcze nie ma alarmów. Dodaj pierwszy — o konkretnej godzinie zegar powie dowolną Twoją frazę.',
+    alarmsOn: (n, total) => ` · ${n} z ${total} ${plForm(total, ['aktywny','aktywne','aktywnych'])}`,
+    nextAt: (hh, mm, countdown) => `· Następna zapowiedź o ${hh}:${mm} (za ${countdown})`,
+    announceOff: '· Auto-zapowiedź wyłączona',
+    minutesLeft: (n) => {
+      if (n === 1) return 'została jedna minuta';
+      const f = plForm(n, ['minuta','minuty','minut']);
+      const v = f === 'minuty' ? 'zostały' : 'zostało';
+      return `${v} ${n} ${f}`;
+    },
+    secondsLeft: (n) => {
+      if (n === 1) return 'została jedna sekunda';
+      const f = plForm(n, ['sekunda','sekundy','sekund']);
+      const v = f === 'sekundy' ? 'zostały' : 'zostało';
+      return `${v} ${n} ${f}`;
+    },
+    timesUp: 'Koniec czasu!',
+  },
+  en: {
+    brandSub: '· live',
+    wakeOff: 'Screen sleeps', wakeOn: 'Screen awake',
+    installApp: 'Install app', howToInstall: 'How to install?',
+    metaDate: 'Date', metaDay: 'Day',
+    tabClock: 'Clock', tabTimer: 'Timer', tabAlarms: 'Alarms',
+    currentTime: 'Current time', howToSay: 'How to say it',
+    labelVoice: 'Voice', labelFormat: 'Hour format', labelInterval: 'Voice announcement',
+    intervalOff: 'Off', intervalMin: 'Every minute', interval5: 'Every 5 min',
+    interval10: 'Every 10 min', interval15: 'Every quarter', interval30: 'Every half hour', interval60: 'Every hour',
+    speakNow: 'Speak now',
+    timerReady: 'Ready', timerRunning: 'Running…', timerPaused: 'Paused', timerDone: "Time's up!",
+    customLabel: 'Or set', customUnit: 'minutes', btnStart: 'Start', btnPause: 'Pause', btnResume: 'Resume', btnReset: 'Reset',
+    yourAlarms: 'Your alarms', addAlarm: 'Add alarm', newAlarm: 'New alarm', editAlarm: 'Edit alarm',
+    formTime: 'Time', formPhrase: 'Phrase', formDays: 'Days', formLang: 'Language',
+    qAll: 'Every day', qWeek: 'Weekdays', qWeekend: 'Weekend', qNone: 'Clear',
+    btnCancel: 'Cancel', btnSave: 'Save alarm',
+    dismiss: 'Dismiss',
+    helpTitle: 'How to install this clock as an app',
+    helpLead: 'Installing makes it run in its own window and easier to open.',
+    footerL: 'English · Web Speech API', footerR: 'Time zone:',
+    days: ['Mo','Tu','We','Th','Fr','Sa','Su'],
+    weekdays: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+    months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+    noAlarms: "No alarms yet. Add one — at a given time the clock will speak any phrase you choose.",
+    alarmsOn: (n, total) => ` · ${n} of ${total} active`,
+    nextAt: (hh, mm, countdown) => `· Next announcement at ${hh}:${mm} (in ${countdown})`,
+    announceOff: '· Auto-announcement off',
+    minutesLeft: (n) => n === 1 ? 'one minute left' : `${n} minutes left`,
+    secondsLeft: (n) => n === 1 ? 'one second left' : `${n} seconds left`,
+    timesUp: "Time's up!",
+  }
+};
+
+function plForm(n, forms) {
+  if (n === 1) return forms[0];
+  const lastTwo = n % 100;
+  const last = n % 10;
+  if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return forms[1];
+  return forms[2];
+}
+
+// ── State ────────────────────────────────────────────────────────────────
+const DEFAULTS = {
+  language: 'pl',
+  hourMode: '12',
+  announceInterval: 1,
+  voicePL: null,
+  voiceEN: null,
+  alarms: [],
+  timerMinutes: 5,
+};
+let state = { ...DEFAULTS };
+
+const SK = 'mowiacy-zegar-v1';
+function saveState() {
+  try { localStorage.setItem(SK, JSON.stringify(state)); } catch (e) {}
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem(SK);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    state = { ...DEFAULTS, ...s };
+    if (!Array.isArray(state.alarms)) state.alarms = [];
+  } catch (e) { console.warn('load failed', e); }
+}
+
+function t(key) {
+  const v = T[state.language][key];
+  return v !== undefined ? v : T.pl[key] || key;
+}
+
+// ── Polish time phrase ───────────────────────────────────────────────────
+const ORD_12_PL = ["pierwsza","druga","trzecia","czwarta","piąta","szósta",
+                   "siódma","ósma","dziewiąta","dziesiąta","jedenasta","dwunasta"];
+const ORD_24_PL = [...ORD_12_PL,
+                   "trzynasta","czternasta","piętnasta","szesnasta","siedemnasta",
+                   "osiemnasta","dziewiętnasta","dwudziesta",
+                   "dwudziesta pierwsza","dwudziesta druga","dwudziesta trzecia"];
+const JEDN_PL = ["zero","jeden","dwa","trzy","cztery","pięć","sześć","siedem","osiem","dziewięć",
+                 "dziesięć","jedenaście","dwanaście","trzynaście","czternaście","piętnaście",
+                 "szesnaście","siedemnaście","osiemnaście","dziewiętnaście"];
+const DZIES_PL = ["","","dwadzieścia","trzydzieści","czterdzieści","pięćdziesiąt"];
+
+function cardinalPL(n) {
+  if (n < 20) return JEDN_PL[n];
+  const d = Math.floor(n / 10), j = n % 10;
+  return j === 0 ? DZIES_PL[d] : DZIES_PL[d] + " " + JEDN_PL[j];
+}
+function hourOrdinalPL(h, mode) {
+  if (mode === "24") return h === 0 ? "dwudziesta czwarta" : ORD_24_PL[h - 1] || ORD_24_PL[0];
+  let h12 = h % 12; if (h12 === 0) h12 = 12;
+  return ORD_12_PL[h12 - 1];
+}
+function polishTime(h, m, mode) {
+  const hourStr = "godzina " + hourOrdinalPL(h, mode);
+  return m === 0 ? hourStr : hourStr + " " + cardinalPL(m);
+}
+
+// ── English time phrase ──────────────────────────────────────────────────
+const HOUR_EN = ["one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve"];
+const NUM_EN = ["zero","one","two","three","four","five","six","seven","eight","nine","ten",
+                "eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen","twenty",
+                "twenty-one","twenty-two","twenty-three","twenty-four","twenty-five","twenty-six","twenty-seven","twenty-eight","twenty-nine"];
+
+function englishTime(h, m, mode) {
+  // For English we always say natural form regardless of 24h/12h — British style
+  let h12 = h % 12; if (h12 === 0) h12 = 12;
+  let nextH = (h + 1) % 12; if (nextH === 0) nextH = 12;
+  const hWord = HOUR_EN[h12 - 1];
+  const nextHWord = HOUR_EN[nextH - 1];
+
+  if (m === 0) return `it's ${hWord} o'clock`;
+  if (m === 15) return `it's a quarter past ${hWord}`;
+  if (m === 30) return `it's half past ${hWord}`;
+  if (m === 45) return `it's a quarter to ${nextHWord}`;
+
+  if (m < 30) {
+    const w = NUM_EN[m];
+    const suffix = (m % 5 === 0) ? '' : ' minutes';
+    return `it's ${w}${suffix} past ${hWord}`;
+  }
+  const diff = 60 - m;
+  const w = NUM_EN[diff];
+  const suffix = (diff % 5 === 0) ? '' : ' minutes';
+  return `it's ${w}${suffix} to ${nextHWord}`;
+}
+
+function buildPhrase(h, m, mode, lang = state.language) {
+  return lang === 'en' ? englishTime(h, m, mode) : polishTime(h, m, mode);
+}
+
+// ── DOM refs ─────────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const $hh = $('hh'), $mm = $('mm'), $ss = $('ss');
+const $period = $('period'), $progress = $('progress');
+const $phrase = $('phrase'), $nextInfo = $('nextInfo');
+const $date = $('date'), $weekday = $('weekday'), $tz = $('tz');
+const $speaker = $('speaker'), $voice = $('voice');
+const $speakBtn = $('speakBtn'), $interval = $('interval');
+const $hourModeSeg = $('hourModeSeg'), $langSeg = $('langSeg');
+const $handHour = $('handHour'), $handMin = $('handMin'), $handSec = $('handSec');
+
+// Timer
+const $timerDisplay = $('timerDisplay'), $timerProgress = $('timerProgress');
+const $timerLabel = $('timerLabel'), $timerPresets = $('timerPresets');
+const $timerInput = $('timerInput'), $timerStart = $('timerStart'), $timerReset = $('timerReset');
+
+// Alarms
+const $alarmsList = $('alarmsList'), $alarmsCount = $('alarmsCount'), $alarmsStatus = $('alarmsStatus');
+const $addAlarmBtn = $('addAlarmBtn'), $alarmForm = $('alarmForm'), $alarmFormTitle = $('alarmFormTitle');
+const $alarmTime = $('alarmTime'), $alarmText = $('alarmText');
+const $dayChips = $('dayChips'), $alarmLangSeg = $('alarmLangSeg');
+const $alarmCancel = $('alarmCancel'), $alarmSave = $('alarmSave');
+
+// Firing
+const $firing = $('firing'), $firingTime = $('firingTime'), $firingText = $('firingText'), $firingDismiss = $('firingDismiss');
+
+// ── Build analog clock marks & numerals ──────────────────────────────────
+(function buildAnalog() {
+  const marks = $('analogMarks');
+  const nums = $('analogNums');
+  for (let i = 0; i < 60; i++) {
+    const angle = (i * 6) * Math.PI / 180;
+    const isHour = i % 5 === 0;
+    const r1 = 95, r2 = isHour ? 85 : 90;
+    const x1 = 100 + r1 * Math.sin(angle);
+    const y1 = 100 - r1 * Math.cos(angle);
+    const x2 = 100 + r2 * Math.sin(angle);
+    const y2 = 100 - r2 * Math.cos(angle);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('class', isHour ? 'mark mark-major' : 'mark mark-minor');
+    marks.appendChild(line);
+  }
+  // Arabic numerals at 12, 3, 6, 9
+  [[12, 0, -70], [3, 70, 0], [6, 0, 70], [9, -70, 0]].forEach(([n, dx, dy]) => {
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('x', 100 + dx); t.setAttribute('y', 100 + dy);
+    t.setAttribute('class', 'num');
+    t.textContent = n;
+    nums.appendChild(t);
+  });
+})();
+
+// ── Voice selection ──────────────────────────────────────────────────────
+let voices = [];
+let chosenVoicePL = null, chosenVoiceEN = null;
+
+function pickBestVoice(list, lang) {
+  if (lang === 'pl') {
+    const pl = list.filter(v => /^pl/i.test(v.lang) || /polish|zosia|paulina|ewa|agnieszka|krzysztof|adam/i.test(v.name));
+    if (!pl.length) return null;
+    const patterns = [/google.*polish/i, /microsoft.*(zofia|paulina|agnieszka)/i, /natural|online|neural/i, /pl-PL/i, /./];
+    for (const p of patterns) { const h = pl.find(v => p.test(v.name) || p.test(v.lang)); if (h) return h; }
+    return pl[0];
+  } else {
+    const en = list.filter(v => /^en/i.test(v.lang));
+    if (!en.length) return null;
+    const patterns = [/google.*uk|google.*british/i, /microsoft.*(libby|sonia|ryan|hazel|george)/i, /en-GB/i, /natural|online|neural/i, /en-US/i, /./];
+    for (const p of patterns) { const h = en.find(v => p.test(v.name) || p.test(v.lang)); if (h) return h; }
+    return en[0];
+  }
+}
+
+function loadVoices() {
+  voices = speechSynthesis.getVoices();
+  $voice.innerHTML = '';
+  const isPL = state.language === 'pl';
+  const primary = voices.filter(v => isPL ? /^pl/i.test(v.lang) : /^en/i.test(v.lang));
+  const others = voices.filter(v => !(isPL ? /^pl/i.test(v.lang) : /^en/i.test(v.lang)));
+
+  if (primary.length) {
+    const g = document.createElement('optgroup');
+    g.label = isPL ? 'Polskie głosy' : 'English voices';
+    primary.forEach(v => {
+      const o = document.createElement('option');
+      o.value = v.name; o.textContent = `${v.name} — ${v.lang}`;
+      g.appendChild(o);
+    });
+    $voice.appendChild(g);
+  }
+  if (others.length) {
+    const g = document.createElement('optgroup');
+    g.label = isPL ? 'Pozostałe' : 'Other languages';
+    others.slice(0, 40).forEach(v => {
+      const o = document.createElement('option');
+      o.value = v.name; o.textContent = `${v.name} — ${v.lang}`;
+      g.appendChild(o);
+    });
+    $voice.appendChild(g);
+  }
+
+  // Restore stored preference or auto-pick
+  const storedKey = isPL ? 'voicePL' : 'voiceEN';
+  const stored = state[storedKey];
+  const found = stored && voices.find(v => v.name === stored);
+  const best = found || pickBestVoice(voices, state.language);
+
+  if (best) {
+    if (isPL) chosenVoicePL = best; else chosenVoiceEN = best;
+    $voice.value = best.name;
+  }
+
+  // Also pick for other language quietly
+  const otherLang = isPL ? 'en' : 'pl';
+  const otherStoredKey = isPL ? 'voiceEN' : 'voicePL';
+  const otherStored = state[otherStoredKey];
+  const otherFound = otherStored && voices.find(v => v.name === otherStored);
+  const otherBest = otherFound || pickBestVoice(voices, otherLang);
+  if (otherBest) {
+    if (otherLang === 'pl') chosenVoicePL = otherBest; else chosenVoiceEN = otherBest;
+  }
+}
+
+$voice.addEventListener('change', () => {
+  const v = voices.find(vv => vv.name === $voice.value);
+  if (!v) return;
+  if (state.language === 'pl') { chosenVoicePL = v; state.voicePL = v.name; }
+  else { chosenVoiceEN = v; state.voiceEN = v.name; }
+  saveState();
+});
+
+if ('speechSynthesis' in window) {
+  speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+// ── Speak ────────────────────────────────────────────────────────────────
+function speak(text, lang = state.language, { highlight = false } = {}) {
+  if (!('speechSynthesis' in window)) return;
+  try { speechSynthesis.cancel(); } catch(e) {}
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang === 'en' ? 'en-GB' : 'pl-PL';
+  const voice = lang === 'en' ? chosenVoiceEN : chosenVoicePL;
+  if (voice) u.voice = voice;
+  u.rate = 0.95; u.pitch = 1.0; u.volume = 1.0;
+
+  u.onstart = () => $speaker.classList.add('on');
+  u.onend = u.onerror = () => $speaker.classList.remove('on');
+
+  if (highlight) {
+    const words = $phrase.querySelectorAll('.w');
+    let idx = 0;
+    words.forEach(w => w.classList.remove('active', 'spoken'));
+    u.onboundary = (e) => {
+      if (e.name !== 'word') return;
+      if (idx > 0) words[idx - 1]?.classList.add('spoken');
+      words[idx - 1]?.classList.remove('active');
+      words[idx]?.classList.add('active');
+      idx++;
+    };
+    u.onend = () => {
+      $speaker.classList.remove('on');
+      words.forEach(w => { w.classList.remove('active'); w.classList.add('spoken'); });
+    };
+  }
+  speechSynthesis.speak(u);
+}
+
+// Audio ding (Web Audio API)
+let audioCtx = null;
+function ding(freq = 880, dur = 0.5) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq / 2, audioCtx.currentTime + dur);
+    gain.gain.setValueAtTime(0.28, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur + 0.2);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur + 0.3);
+  } catch (e) {}
+}
+
+// ── Render ───────────────────────────────────────────────────────────────
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function renderPhrase(h, m) {
+  const text = buildPhrase(h, m, state.hourMode);
+  $phrase.innerHTML = '';
+  const tokens = text.split(' ');
+  tokens.forEach((w, i) => {
+    const span = document.createElement('span');
+    span.className = 'w';
+    span.textContent = w;
+    $phrase.appendChild(span);
+    if (i < tokens.length - 1) $phrase.appendChild(document.createTextNode(' '));
+  });
+}
+
+let lastMinute = -1;
+let lastAlarmCheck = -1;
+
+function updateDigital() {
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const s = now.getSeconds();
+
+  let displayH = h;
+  if (state.hourMode === '12') {
+    displayH = h % 12 || 12;
+    $period.textContent = h < 12 ? 'AM' : 'PM';
+    $period.style.display = '';
+  } else {
+    $period.style.display = 'none';
+  }
+
+  $hh.textContent = pad(displayH);
+  $mm.textContent = pad(m);
+  $ss.textContent = pad(s);
+  $progress.style.setProperty('--pct', `${(s / 60) * 100}%`);
+
+  if (m !== lastMinute || $phrase.children.length === 0) {
+    renderPhrase(h, m);
+    if (m !== lastMinute && lastMinute !== -1) {
+      // auto-announce clock
+      if (state.announceInterval > 0 && m % state.announceInterval === 0) {
+        speak(buildPhrase(h, m, state.hourMode));
+      }
+    }
+    lastMinute = m;
+  }
+
+  // Alarms — check once per minute transition
+  const minuteKey = h * 60 + m;
+  if (minuteKey !== lastAlarmCheck) {
+    checkAlarms(h, m, now);
+    lastAlarmCheck = minuteKey;
+  }
+
+  // Date
+  const lang = T[state.language];
+  $date.textContent = `${now.getDate()} ${lang.months[now.getMonth()]} ${now.getFullYear()}`;
+  $weekday.textContent = lang.weekdays[now.getDay()];
+  $tz.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  updateNextInfo(h, m, s);
+}
+
+function updateAnalog() {
+  const now = new Date();
+  const h = now.getHours(), m = now.getMinutes(), s = now.getSeconds(), ms = now.getMilliseconds();
+  const secAngle = (s + ms / 1000) * 6;
+  const minAngle = (m + s / 60) * 6;
+  const hourAngle = ((h % 12) + m / 60) * 30;
+  $handHour.style.transform = `rotate(${hourAngle}deg)`;
+  $handMin.style.transform = `rotate(${minAngle}deg)`;
+  $handSec.style.transform = `rotate(${secAngle}deg)`;
+  requestAnimationFrame(updateAnalog);
+}
+
+function updateNextInfo(h, m, s) {
+  if (state.announceInterval === 0) {
+    $nextInfo.textContent = t('announceOff');
+    return;
+  }
+  const remainder = m % state.announceInterval;
+  let minsToNext = remainder === 0 ? state.announceInterval : state.announceInterval - remainder;
+  const secsToNext = minsToNext * 60 - s;
+  const mm = Math.floor(secsToNext / 60), ss = secsToNext % 60;
+  const target = new Date();
+  target.setSeconds(0, 0);
+  target.setMinutes(target.getMinutes() + minsToNext);
+  const hh = pad(target.getHours()), mmS = pad(target.getMinutes());
+  const countdown = mm > 0 ? `${mm} min ${pad(ss)} s` : `${ss} s`;
+  $nextInfo.textContent = t('nextAt')(hh, mmS, countdown);
+}
+
+// ── Controls ─────────────────────────────────────────────────────────────
+$hourModeSeg.querySelectorAll('button').forEach(b => {
+  b.addEventListener('click', () => {
+    $hourModeSeg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    state.hourMode = b.dataset.mode;
+    saveState();
+    const now = new Date();
+    renderPhrase(now.getHours(), now.getMinutes());
+    updateDigital();
+  });
+});
+
+$interval.addEventListener('change', () => {
+  state.announceInterval = parseInt($interval.value, 10) || 0;
+  saveState();
+  const now = new Date();
+  updateNextInfo(now.getHours(), now.getMinutes(), now.getSeconds());
+});
+
+$speakBtn.addEventListener('click', () => {
+  const now = new Date();
+  renderPhrase(now.getHours(), now.getMinutes());
+  speak(buildPhrase(now.getHours(), now.getMinutes(), state.hourMode), state.language, { highlight: true });
+});
+
+// ── Language switch ──────────────────────────────────────────────────────
+$langSeg.querySelectorAll('button').forEach(b => {
+  b.addEventListener('click', () => {
+    $langSeg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    state.language = b.dataset.lang;
+    saveState();
+    applyTranslations();
+    loadVoices();
+    const now = new Date();
+    renderPhrase(now.getHours(), now.getMinutes());
+    updateDigital();
+    renderAlarms();
+    renderDayChips();
+  });
+});
+
+function applyTranslations() {
+  document.documentElement.lang = state.language;
+  document.querySelectorAll('[data-t]').forEach(el => {
+    const key = el.dataset.t;
+    const v = T[state.language][key];
+    if (v !== undefined && typeof v === 'string') el.textContent = v;
+  });
+  // Update interval options manually (they're child options)
+  const intervalLabels = {
+    '0': T[state.language].intervalOff, '1': T[state.language].intervalMin,
+    '5': T[state.language].interval5, '10': T[state.language].interval10,
+    '15': T[state.language].interval15, '30': T[state.language].interval30,
+    '60': T[state.language].interval60,
+  };
+  Array.from($interval.options).forEach(o => {
+    if (intervalLabels[o.value]) o.textContent = intervalLabels[o.value];
+  });
+  // timerInput placeholder
+  $alarmText.placeholder = state.language === 'pl'
+    ? 'np. Dzień dobry, pora wstawać'
+    : 'e.g. Good morning, time to wake up';
+  // wake chip label based on current state
+  $wakeLbl.textContent = wakeWanted ? t('wakeOn') : t('wakeOff');
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────
+const tabs = document.querySelectorAll('.tab');
+const views = { clock: $('view-clock'), timer: $('view-timer'), alarms: $('view-alarms') };
+
+function showView(name) {
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.view === name));
+  Object.entries(views).forEach(([k, v]) => v.classList.toggle('active', k === name));
+  if (location.hash !== '#' + name) {
+    history.replaceState(null, '', '#' + name);
+  }
+}
+tabs.forEach(t => t.addEventListener('click', () => showView(t.dataset.view)));
+
+// Handle hash routing
+function routeFromHash() {
+  const h = location.hash.replace('#', '').split('-')[0];
+  if (['clock','timer','alarms'].includes(h)) showView(h);
+  // timer with preset: #timer-5
+  if (h === 'timer') {
+    const m = location.hash.split('-')[1];
+    if (m) {
+      const mins = parseInt(m, 10);
+      if (mins > 0) {
+        $timerInput.value = mins;
+        setTimerDuration(mins);
+      }
+    }
+  }
+}
+window.addEventListener('hashchange', routeFromHash);
+
+// ── Timer ────────────────────────────────────────────────────────────────
+const TIMER_STATES = { IDLE: 'idle', RUNNING: 'running', PAUSED: 'paused', DONE: 'done' };
+let timer = {
+  state: TIMER_STATES.IDLE,
+  totalSeconds: 300,
+  remaining: 300,
+  endTime: 0, // timestamp when it should end if running
+  lastAnnouncedSecond: -1,
+  raf: 0,
+};
+
+function setTimerDuration(mins) {
+  timer.totalSeconds = mins * 60;
+  timer.remaining = mins * 60;
+  timer.state = TIMER_STATES.IDLE;
+  state.timerMinutes = mins;
+  saveState();
+  renderTimer();
+}
+
+function renderTimer() {
+  const s = Math.max(0, timer.remaining);
+  const mm = Math.floor(s / 60);
+  const ss = s % 60;
+  $timerDisplay.textContent = `${pad(mm)}:${pad(ss)}`;
+  const pct = timer.totalSeconds > 0 ? ((timer.totalSeconds - s) / timer.totalSeconds) * 100 : 0;
+  $timerProgress.style.setProperty('--pct', `${pct}%`);
+
+  $timerDisplay.classList.toggle('running', timer.state === TIMER_STATES.RUNNING);
+  $timerDisplay.classList.toggle('finished', timer.state === TIMER_STATES.DONE);
+
+  const labels = {
+    [TIMER_STATES.IDLE]: t('timerReady'),
+    [TIMER_STATES.RUNNING]: t('timerRunning'),
+    [TIMER_STATES.PAUSED]: t('timerPaused'),
+    [TIMER_STATES.DONE]: t('timerDone'),
+  };
+  $timerLabel.textContent = labels[timer.state];
+
+  const btnSpan = $timerStart.querySelector('span');
+  if (timer.state === TIMER_STATES.RUNNING) btnSpan.textContent = t('btnPause');
+  else if (timer.state === TIMER_STATES.PAUSED) btnSpan.textContent = t('btnResume');
+  else btnSpan.textContent = t('btnStart');
+}
+
+function timerTick() {
+  if (timer.state !== TIMER_STATES.RUNNING) return;
+  const now = Date.now();
+  timer.remaining = Math.max(0, Math.ceil((timer.endTime - now) / 1000));
+
+  // announcement
+  const r = timer.remaining;
+  if (r !== timer.lastAnnouncedSecond) {
+    timer.lastAnnouncedSecond = r;
+    if (r === 0) {
+      timer.state = TIMER_STATES.DONE;
+      ding(880, 0.4); setTimeout(() => ding(660, 0.6), 300);
+      setTimeout(() => speak(t('timesUp')), 900);
+    } else if (r % 60 === 0 && r <= timer.totalSeconds - 60) {
+      // minute boundary (except the very start)
+      const mins = r / 60;
+      speak(T[state.language].minutesLeft(mins));
+    } else if (r === 30 || r === 10) {
+      speak(T[state.language].secondsLeft(r));
+      if (r === 10) ding(660, 0.15);
+    } else if (r === 5 || r === 4 || r === 3 || r === 2 || r === 1) {
+      ding(660, 0.1);
+    }
+  }
+  renderTimer();
+  if (timer.state === TIMER_STATES.RUNNING) {
+    timer.raf = requestAnimationFrame(timerTick);
+  }
+}
+
+$timerPresets.querySelectorAll('.timer-preset').forEach(b => {
+  b.addEventListener('click', () => {
+    $timerPresets.querySelectorAll('.timer-preset').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    const mins = parseInt(b.dataset.mins, 10);
+    $timerInput.value = mins;
+    setTimerDuration(mins);
+  });
+});
+
+$timerInput.addEventListener('input', () => {
+  const mins = Math.max(1, Math.min(180, parseInt($timerInput.value, 10) || 1));
+  $timerPresets.querySelectorAll('.timer-preset').forEach(x => {
+    x.classList.toggle('active', parseInt(x.dataset.mins, 10) === mins);
+  });
+  setTimerDuration(mins);
+});
+
+$timerStart.addEventListener('click', () => {
+  if (timer.state === TIMER_STATES.RUNNING) {
+    // pause
+    timer.state = TIMER_STATES.PAUSED;
+    timer.remaining = Math.max(0, Math.ceil((timer.endTime - Date.now()) / 1000));
+    cancelAnimationFrame(timer.raf);
+    renderTimer();
+  } else if (timer.state === TIMER_STATES.PAUSED) {
+    // resume
+    timer.state = TIMER_STATES.RUNNING;
+    timer.endTime = Date.now() + timer.remaining * 1000;
+    timer.lastAnnouncedSecond = -1;
+    timer.raf = requestAnimationFrame(timerTick);
+    renderTimer();
+  } else {
+    // start fresh (or restart after done)
+    if (timer.state === TIMER_STATES.DONE) {
+      timer.remaining = timer.totalSeconds;
+    }
+    timer.state = TIMER_STATES.RUNNING;
+    timer.endTime = Date.now() + timer.remaining * 1000;
+    timer.lastAnnouncedSecond = -1;
+    timer.raf = requestAnimationFrame(timerTick);
+    renderTimer();
+  }
+});
+
+$timerReset.addEventListener('click', () => {
+  timer.state = TIMER_STATES.IDLE;
+  timer.remaining = timer.totalSeconds;
+  cancelAnimationFrame(timer.raf);
+  try { speechSynthesis.cancel(); } catch (e) {}
+  renderTimer();
+});
+
+// ── Alarms ───────────────────────────────────────────────────────────────
+// Day indexing: [Mon, Tue, Wed, Thu, Fri, Sat, Sun] (index 0 = Monday)
+function dowMondayFirst(jsDay) { return (jsDay + 6) % 7; }
+
+function newAlarmId() { return 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+let editingAlarmId = null;
+let formDays = [true, true, true, true, true, false, false];
+let formLang = 'pl';
+
+function renderDayChips() {
+  $dayChips.innerHTML = '';
+  const labels = T[state.language].days;
+  labels.forEach((lab, i) => {
+    const b = document.createElement('button');
+    b.className = 'day-chip' + (formDays[i] ? ' on' : '');
+    b.textContent = lab;
+    b.dataset.idx = i;
+    b.addEventListener('click', () => {
+      formDays[i] = !formDays[i];
+      b.classList.toggle('on');
+    });
+    $dayChips.appendChild(b);
+  });
+}
+
+function openAlarmForm(alarm = null) {
+  editingAlarmId = alarm ? alarm.id : null;
+  $alarmFormTitle.textContent = alarm ? t('editAlarm') : t('newAlarm');
+  if (alarm) {
+    $alarmTime.value = alarm.time;
+    $alarmText.value = alarm.text;
+    formDays = [...alarm.days];
+    formLang = alarm.language;
+  } else {
+    $alarmTime.value = '07:30';
+    $alarmText.value = '';
+    formDays = [true, true, true, true, true, false, false];
+    formLang = state.language;
+  }
+  $alarmLangSeg.querySelectorAll('button').forEach(b => {
+    b.classList.toggle('on', b.dataset.lang === formLang);
+  });
+  renderDayChips();
+  $alarmForm.classList.add('open');
+  $alarmForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  setTimeout(() => $alarmText.focus(), 100);
+}
+
+function closeAlarmForm() {
+  $alarmForm.classList.remove('open');
+  editingAlarmId = null;
+}
+
+$addAlarmBtn.addEventListener('click', () => openAlarmForm());
+$alarmCancel.addEventListener('click', closeAlarmForm);
+
+$alarmLangSeg.querySelectorAll('button').forEach(b => {
+  b.addEventListener('click', () => {
+    $alarmLangSeg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    formLang = b.dataset.lang;
+  });
+});
+
+document.querySelectorAll('.quick-days button').forEach(b => {
+  b.addEventListener('click', () => {
+    const q = b.dataset.quick;
+    if (q === 'all') formDays = [true, true, true, true, true, true, true];
+    else if (q === 'week') formDays = [true, true, true, true, true, false, false];
+    else if (q === 'weekend') formDays = [false, false, false, false, false, true, true];
+    else formDays = [false, false, false, false, false, false, false];
+    renderDayChips();
+  });
+});
+
+$alarmSave.addEventListener('click', () => {
+  const text = $alarmText.value.trim();
+  const time = $alarmTime.value;
+  if (!text) { $alarmText.focus(); return; }
+  if (!time || !/^\d{2}:\d{2}$/.test(time)) { $alarmTime.focus(); return; }
+  if (!formDays.some(Boolean)) {
+    formDays = [true, true, true, true, true, true, true];
+  }
+  const alarm = {
+    id: editingAlarmId || newAlarmId(),
+    time, text,
+    days: [...formDays],
+    language: formLang,
+    enabled: true,
+  };
+  if (editingAlarmId) {
+    const idx = state.alarms.findIndex(a => a.id === editingAlarmId);
+    if (idx >= 0) { alarm.enabled = state.alarms[idx].enabled; state.alarms[idx] = alarm; }
+  } else {
+    state.alarms.push(alarm);
+  }
+  state.alarms.sort((a, b) => a.time.localeCompare(b.time));
+  saveState();
+  renderAlarms();
+  closeAlarmForm();
+});
+
+function renderAlarms() {
+  $alarmsList.innerHTML = '';
+  const total = state.alarms.length;
+  const active = state.alarms.filter(a => a.enabled).length;
+  $alarmsCount.textContent = total;
+  $alarmsStatus.textContent = total === 0 ? '' : T[state.language].alarmsOn(active, total);
+
+  if (total === 0) {
+    const d = document.createElement('div');
+    d.className = 'empty-state';
+    d.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 22a2 2 0 0 0 4 0"/></svg><p>${t('noAlarms')}</p>`;
+    $alarmsList.appendChild(d);
+    return;
+  }
+
+  state.alarms.forEach(a => {
+    const card = document.createElement('div');
+    card.className = 'alarm-card' + (a.enabled ? ' enabled' : '');
+    const dayLabels = T[state.language].days;
+    const daysHTML = dayLabels.map((lab, i) => `<span class="day-pill${a.days[i] ? ' on' : ''}">${lab}</span>`).join('');
+    card.innerHTML = `
+      <div class="time">${a.time}</div>
+      <div class="middle">
+        <div class="text">${escapeHtml(a.text)}<span class="lang-pill">${a.language}</span></div>
+        <div class="days">${daysHTML}</div>
+      </div>
+      <div class="actions">
+        <div class="switch${a.enabled ? ' on' : ''}" data-id="${a.id}" data-act="toggle" role="switch" aria-checked="${a.enabled}"></div>
+        <button class="icon-btn" data-id="${a.id}" data-act="edit" title="Edytuj">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4v16h16v-7M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="icon-btn danger" data-id="${a.id}" data-act="delete" title="Usuń">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/></svg>
+        </button>
+      </div>
+    `;
+    $alarmsList.appendChild(card);
+  });
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+$alarmsList.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const alarm = state.alarms.find(a => a.id === id);
+  if (!alarm) return;
+  if (btn.dataset.act === 'toggle') {
+    alarm.enabled = !alarm.enabled;
+    saveState();
+    renderAlarms();
+  } else if (btn.dataset.act === 'edit') {
+    openAlarmForm(alarm);
+  } else if (btn.dataset.act === 'delete') {
+    if (confirm(state.language === 'pl' ? `Usunąć alarm "${alarm.text}"?` : `Delete alarm "${alarm.text}"?`)) {
+      state.alarms = state.alarms.filter(a => a.id !== id);
+      saveState();
+      renderAlarms();
+    }
+  }
+});
+
+// ── Firing ───────────────────────────────────────────────────────────────
+let firingAlarmId = null;
+function fireAlarm(alarm) {
+  firingAlarmId = alarm.id;
+  $firingTime.textContent = alarm.time;
+  $firingText.textContent = alarm.text;
+  $firing.classList.add('on');
+  ding(880, 0.3);
+  setTimeout(() => ding(660, 0.5), 350);
+  setTimeout(() => speak(alarm.text, alarm.language), 900);
+}
+
+$firingDismiss.addEventListener('click', () => {
+  $firing.classList.remove('on');
+  try { speechSynthesis.cancel(); } catch (e) {}
+  firingAlarmId = null;
+});
+
+function checkAlarms(h, m, now) {
+  const hhmm = pad(h) + ':' + pad(m);
+  const dow = dowMondayFirst(now.getDay());
+  for (const a of state.alarms) {
+    if (!a.enabled) continue;
+    if (a.time !== hhmm) continue;
+    if (!a.days[dow]) continue;
+    fireAlarm(a);
+    return; // only one alarm at a time
+  }
+}
+
+// ── PWA: install, wake lock, service worker ──────────────────────────────
+const $installChip = $('installChip');
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); deferredPrompt = e; $installChip.hidden = false;
+});
+$installChip.addEventListener('click', async () => {
+  if (!deferredPrompt) { openHelp(); return; }
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  if (outcome === 'accepted') $installChip.hidden = true;
+});
+window.addEventListener('appinstalled', () => {
+  $installChip.hidden = true; deferredPrompt = null;
+});
+if (window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true) {
+  $installChip.hidden = true;
+}
+
+// Help
+const $helpChip = $('helpChip'), $helpBackdrop = $('helpBackdrop'), $helpClose = $('helpClose');
+const openHelp = () => $helpBackdrop.classList.add('open');
+const closeHelp = () => $helpBackdrop.classList.remove('open');
+$helpChip.addEventListener('click', openHelp);
+$helpClose.addEventListener('click', closeHelp);
+$helpBackdrop.addEventListener('click', e => { if (e.target === $helpBackdrop) closeHelp(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeHelp(); closeAlarmForm(); } });
+
+// Wake lock
+const $wakeChip = $('wakeChip'), $wakeLbl = $('wakeLbl');
+let wakeLock = null, wakeWanted = false;
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) { $wakeLbl.textContent = 'N/A'; $wakeChip.disabled = true; return false; }
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => {
+      if (wakeWanted && document.visibilityState === 'visible') requestWakeLock();
+    });
+    $wakeChip.classList.add('on');
+    $wakeLbl.textContent = t('wakeOn');
+    return true;
+  } catch (err) { console.warn(err); return false; }
+}
+async function releaseWakeLock() {
+  if (wakeLock) { try { await wakeLock.release(); } catch (e) {} wakeLock = null; }
+  $wakeChip.classList.remove('on');
+  $wakeLbl.textContent = t('wakeOff');
+}
+$wakeChip.addEventListener('click', async () => {
+  wakeWanted = !wakeWanted;
+  if (wakeWanted) await requestWakeLock(); else await releaseWakeLock();
+});
+document.addEventListener('visibilitychange', () => {
+  if (wakeWanted && document.visibilityState === 'visible' && !wakeLock) requestWakeLock();
+});
+
+// Service worker
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+// Media session
+if ('mediaSession' in navigator) {
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: 'Mówiący Zegar', artist: 'Zegar po polsku', album: 'Na żywo',
+    artwork: [
+      { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
+      { src: 'icon-512.png', sizes: '512x512', type: 'image/png' }
+    ]
+  });
+  navigator.mediaSession.setActionHandler('play', () => {
+    const now = new Date();
+    speak(buildPhrase(now.getHours(), now.getMinutes(), state.hourMode));
+  });
+  navigator.mediaSession.setActionHandler('pause', () => {
+    try { speechSynthesis.cancel(); } catch (e) {}
+  });
+  navigator.mediaSession.playbackState = 'playing';
+}
+
+// Silent audio keep-alive (helps Android)
+let keepAliveStarted = false;
+function startKeepAlive() {
+  if (keepAliveStarted) return;
+  keepAliveStarted = true;
+  try {
+    const silent = new Audio(
+      'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+Pwtmk'
+    );
+    silent.loop = true; silent.volume = 0.0001;
+    silent.play().catch(() => { keepAliveStarted = false; });
+  } catch (e) { keepAliveStarted = false; }
+}
+function armBackground() {
+  startKeepAlive();
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+  document.removeEventListener('click', armBackground);
+  document.removeEventListener('touchstart', armBackground);
+}
+document.addEventListener('click', armBackground);
+document.addEventListener('touchstart', armBackground);
+
+// ── Init ────────────────────────────────────────────────────────────────
+loadState();
+
+// Apply stored values to UI
+$langSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.lang === state.language));
+$hourModeSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mode === state.hourMode));
+$interval.value = String(state.announceInterval);
+$timerInput.value = state.timerMinutes;
+$timerPresets.querySelectorAll('.timer-preset').forEach(b => {
+  b.classList.toggle('active', parseInt(b.dataset.mins, 10) === state.timerMinutes);
+});
+setTimerDuration(state.timerMinutes);
+
+applyTranslations();
+if ('speechSynthesis' in window) loadVoices();
+renderAlarms();
+renderDayChips();
+
+// Initialize alarm check marker to current minute so we don't fire stale alarms on load
+{
+  const now = new Date();
+  lastAlarmCheck = now.getHours() * 60 + now.getMinutes();
+}
+
+// Start ticking
+updateDigital();
+setInterval(updateDigital, 1000);
+requestAnimationFrame(updateAnalog);
+
+// Handle hash route after init
+routeFromHash();
+</script>
+</body>
+</html>
