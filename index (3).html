@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0c1220">
+<meta name="description" content="Mówiący zegar po polsku. Ogłasza godzinę według ustalonego harmonogramu.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Zegar">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="64x64" href="icon-64.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Mówiący Zegar — Która jest godzina?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,500&family=JetBrains+Mono:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0c1220;
+    --ink-deep: #05080f;
+    --ink-soft: #14192b;
+    --cream: #f4ecd8;
+    --cream-soft: #cdc4ad;
+    --amber: #f4a737;
+    --amber-glow: #ffcf7a;
+    --burgundy: #b54a37;
+    --muted: rgba(244, 236, 216, 0.45);
+    --hairline: rgba(244, 236, 216, 0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 85% 15%, rgba(244, 167, 55, 0.18), transparent 45%),
+      radial-gradient(circle at 10% 90%, rgba(181, 74, 55, 0.22), transparent 50%),
+      linear-gradient(180deg, var(--ink-deep) 0%, var(--ink) 100%);
+    background-attachment: fixed;
+    color: var(--cream);
+    font-family: 'Fraunces', Georgia, serif;
+    font-feature-settings: "ss01", "ss02";
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* grain */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.07;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 0.96  0 0 0 0 0.92  0 0 0 0 0.84  0 0 0 0.7 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    mix-blend-mode: overlay;
+  }
+
+  .frame {
+    position: relative;
+    z-index: 2;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: clamp(1.25rem, 4vw, 3.5rem);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ——— TOPBAR ——— */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--hairline);
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    font-family: 'Fraunces';
+    font-weight: 900;
+    font-size: clamp(1.25rem, 2vw, 1.6rem);
+    letter-spacing: -0.02em;
+  }
+  .brand .dot {
+    width: 10px; height: 10px;
+    background: var(--amber);
+    border-radius: 50%;
+    box-shadow: 0 0 18px 2px var(--amber-glow);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .brand .sub {
+    font-weight: 500;
+    font-style: italic;
+    color: var(--muted);
+    font-size: 0.8em;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.55; transform: scale(0.85); }
+  }
+  .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cream-soft);
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .meta span strong {
+    color: var(--amber);
+    font-weight: 500;
+    margin-left: 0.4rem;
+  }
+
+  /* ——— MAIN ——— */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: clamp(2rem, 5vw, 5rem);
+    align-items: center;
+    padding: clamp(2rem, 5vw, 4rem) 0;
+  }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; gap: 3rem; }
+  }
+
+  /* left column — clock */
+  .clock-stage { position: relative; }
+
+  .stage-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .stage-label::before {
+    content: '';
+    width: 28px; height: 1px;
+    background: var(--amber);
+  }
+
+  .digital {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 300;
+    font-size: clamp(5rem, 16vw, 13rem);
+    line-height: 0.9;
+    letter-spacing: -0.05em;
+    color: var(--cream);
+    display: flex;
+    align-items: baseline;
+    gap: 0.02em;
+    position: relative;
+    text-shadow: 0 0 60px rgba(244, 167, 55, 0.1);
+  }
+  .digital .sep {
+    color: var(--amber);
+    animation: blink 1s steps(2, end) infinite;
+    margin: 0 0.03em;
+  }
+  @keyframes blink { 50% { opacity: 0.15; } }
+
+  .seconds-row {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--hairline);
+  }
+  .seconds-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: var(--amber);
+    min-width: 3ch;
+  }
+  .progress {
+    flex: 1;
+    height: 2px;
+    background: var(--hairline);
+    position: relative;
+    overflow: hidden;
+  }
+  .progress::after {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--pct, 0%);
+    background: linear-gradient(90deg, var(--burgundy), var(--amber));
+    transition: width 0.4s ease-out;
+  }
+  .period {
+    font-family: 'Fraunces';
+    font-style: italic;
+    font-weight: 500;
+    color: var(--cream-soft);
+    font-size: 1rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  /* right column — spoken phrase */
+  .phrase-stage {
+    position: relative;
+    padding: clamp(1.5rem, 3vw, 2.5rem) 0;
+  }
+  .phrase-stage::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -1px;
+    width: 1px; height: 100%;
+    background: linear-gradient(180deg, transparent, var(--hairline) 20%, var(--hairline) 80%, transparent);
+  }
+  @media (max-width: 900px) {
+    .phrase-stage::before { display: none; }
+    .phrase-stage { padding-left: 0; }
+  }
+  .phrase-stage { padding-left: clamp(1.5rem, 4vw, 3rem); }
+
+  .phrase-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .phrase-label::before {
+    content: '';
+    width: 28px; height: 1px;
+    background: var(--amber);
+  }
+
+  .phrase {
+    font-family: 'Fraunces';
+    font-weight: 500;
+    font-size: clamp(2rem, 4.5vw, 3.4rem);
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    color: var(--cream);
+    min-height: 3em;
+  }
+  .phrase .w {
+    display: inline-block;
+    opacity: 0.6;
+    transition: all 0.35s cubic-bezier(.2,.8,.2,1);
+    padding: 0 0.08em;
+  }
+  .phrase .w.active {
+    opacity: 1;
+    color: var(--amber);
+    transform: translateY(-2px);
+    text-shadow: 0 0 30px rgba(244, 167, 55, 0.35);
+  }
+  .phrase .w.spoken {
+    opacity: 1;
+    color: var(--cream);
+  }
+
+  .phrase-hint {
+    margin-top: 1.5rem;
+    font-family: 'Fraunces';
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1rem;
+    color: var(--cream-soft);
+    line-height: 1.5;
+    max-width: 32ch;
+  }
+
+  /* speaker bars */
+  .speaker {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 1em;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .speaker.on { opacity: 1; }
+  .speaker i {
+    display: block;
+    width: 3px;
+    background: var(--amber);
+    border-radius: 2px;
+    animation: bars 0.9s ease-in-out infinite;
+  }
+  .speaker i:nth-child(1) { height: 40%; animation-delay: -0.1s; }
+  .speaker i:nth-child(2) { height: 80%; animation-delay: -0.3s; }
+  .speaker i:nth-child(3) { height: 60%; animation-delay: -0.5s; }
+  .speaker i:nth-child(4) { height: 90%; animation-delay: -0.7s; }
+  @keyframes bars {
+    0%, 100% { transform: scaleY(0.3); }
+    50% { transform: scaleY(1); }
+  }
+
+  /* ——— CONTROLS ——— */
+  .controls {
+    margin-top: auto;
+    padding-top: 2rem;
+    border-top: 1px solid var(--hairline);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    align-items: end;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .field label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .field select,
+  .field .seg {
+    background: var(--ink-soft);
+    border: 1px solid var(--hairline);
+    color: var(--cream);
+    padding: 0.75rem 1rem;
+    font-family: 'Fraunces';
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 2px;
+  }
+  .field select:hover {
+    border-color: var(--amber);
+  }
+  .field select:focus {
+    outline: none;
+    border-color: var(--amber);
+    box-shadow: 0 0 0 3px rgba(244, 167, 55, 0.15);
+  }
+
+  .seg {
+    display: flex;
+    padding: 4px;
+    gap: 2px;
+  }
+  .seg button {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--cream-soft);
+    padding: 0.55rem 0.8rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+  .seg button.on {
+    background: var(--amber);
+    color: var(--ink-deep);
+    font-weight: 500;
+  }
+  .seg button:not(.on):hover {
+    color: var(--cream);
+    background: rgba(244, 236, 216, 0.05);
+  }
+
+  .speak-btn {
+    background: var(--cream);
+    color: var(--ink-deep);
+    border: none;
+    padding: 1rem 1.5rem;
+    font-family: 'Fraunces';
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    border-radius: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .speak-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, var(--amber), var(--amber-glow));
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+  }
+  .speak-btn span { position: relative; z-index: 1; }
+  .speak-btn:hover::before { transform: translateX(0); }
+  .speak-btn:active { transform: scale(0.98); }
+
+  .speak-btn svg {
+    position: relative;
+    z-index: 1;
+    width: 16px; height: 16px;
+  }
+
+  /* footer */
+  footer {
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--hairline);
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  footer em { color: var(--amber); font-style: normal; }
+
+  /* reveal animations */
+  .reveal { opacity: 0; transform: translateY(8px); animation: reveal 0.8s cubic-bezier(.2,.8,.2,1) forwards; }
+  .reveal.d1 { animation-delay: 0.05s; }
+  .reveal.d2 { animation-delay: 0.15s; }
+  .reveal.d3 { animation-delay: 0.3s; }
+  .reveal.d4 { animation-delay: 0.5s; }
+  .reveal.d5 { animation-delay: 0.7s; }
+  @keyframes reveal { to { opacity: 1; transform: translateY(0); } }
+
+  /* ——— PWA: install + wake lock ——— */
+  .chip-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: transparent;
+    border: 1px solid var(--hairline);
+    color: var(--cream-soft);
+    padding: 0.5rem 0.85rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 999px;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .chip:hover { border-color: var(--amber); color: var(--cream); }
+  .chip.primary {
+    background: var(--amber);
+    color: var(--ink-deep);
+    border-color: var(--amber);
+    font-weight: 500;
+  }
+  .chip.primary:hover { background: var(--amber-glow); border-color: var(--amber-glow); }
+  .chip.on {
+    background: rgba(244, 167, 55, 0.15);
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+  .chip svg { width: 12px; height: 12px; }
+  .chip[hidden] { display: none !important; }
+
+  /* Help panel / modal */
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 8, 15, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+  .backdrop.open { opacity: 1; pointer-events: auto; }
+
+  .panel {
+    background: var(--ink);
+    border: 1px solid var(--hairline);
+    max-width: 640px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: clamp(1.5rem, 4vw, 2.5rem);
+    position: relative;
+    transform: translateY(12px);
+    transition: transform 0.3s cubic-bezier(.2,.8,.2,1);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+  }
+  .backdrop.open .panel { transform: translateY(0); }
+
+  .panel h2 {
+    font-family: 'Fraunces';
+    font-weight: 700;
+    font-size: clamp(1.4rem, 3vw, 1.9rem);
+    letter-spacing: -0.02em;
+    margin-bottom: 0.4rem;
+  }
+  .panel .lead {
+    color: var(--cream-soft);
+    font-style: italic;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+  }
+
+  .panel .close {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    background: transparent;
+    border: 1px solid var(--hairline);
+    color: var(--cream);
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    transition: all 0.2s;
+  }
+  .panel .close:hover { border-color: var(--amber); color: var(--amber); }
+
+  .plat {
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .plat:last-child { border-bottom: none; }
+  .plat h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 0.6rem;
+    font-weight: 500;
+  }
+  .plat ol {
+    padding-left: 1.3rem;
+    color: var(--cream-soft);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .plat ol li { margin-bottom: 0.3rem; }
+  .plat ol li strong { color: var(--cream); font-weight: 500; }
+
+  .notice {
+    margin-top: 1.5rem;
+    padding: 0.9rem 1rem;
+    background: rgba(181, 74, 55, 0.12);
+    border-left: 3px solid var(--burgundy);
+    font-size: 0.88rem;
+    color: var(--cream-soft);
+    line-height: 1.5;
+    font-style: italic;
+  }
+  .notice strong { color: var(--cream); font-style: normal; }
+
+  /* Persistent wake-lock indicator in topbar */
+  .chip .led {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 6px currentColor;
+  }
+  .chip.on .led { animation: pulse 1.8s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<div class="frame">
+
+  <!-- TOPBAR -->
+  <header class="topbar reveal d1">
+    <div class="brand">
+      <span class="dot"></span>
+      <span>Mówiący Zegar</span>
+      <span class="sub">· na żywo</span>
+    </div>
+    <div class="chip-row">
+      <button class="chip" id="wakeChip" title="Nie pozwól zasnąć ekranowi">
+        <span class="led"></span>
+        <span id="wakeLbl">Ekran śpi</span>
+      </button>
+      <button class="chip primary" id="installChip" hidden>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Zainstaluj aplikację
+      </button>
+      <button class="chip" id="helpChip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 1 1 5.8 1c0 2-3 2-3 4M12 17h.01"/></svg>
+        Jak zainstalować?
+      </button>
+    </div>
+  </header>
+
+  <!-- Meta pod topbarem -->
+  <div class="meta reveal d1" style="padding: 1rem 0 0; border: none;">
+    <span>Data <strong id="date"></strong></span>
+    <span>Dzień <strong id="weekday"></strong></span>
+  </div>
+
+  <!-- MAIN -->
+  <main>
+
+    <!-- LEFT: digital clock -->
+    <section class="clock-stage">
+      <div class="stage-label reveal d2">Aktualny czas</div>
+
+      <div class="digital reveal d2">
+        <span id="hh">00</span>
+        <span class="sep">:</span>
+        <span id="mm">00</span>
+      </div>
+
+      <div class="seconds-row reveal d3">
+        <span class="seconds-num" id="ss">00</span>
+        <div class="progress" id="progress" style="--pct:0%"></div>
+        <span class="period" id="period">AM</span>
+      </div>
+    </section>
+
+    <!-- RIGHT: spoken phrase -->
+    <section class="phrase-stage">
+      <div class="phrase-label reveal d3">
+        Jak to powiedzieć
+        <span class="speaker" id="speaker"><i></i><i></i><i></i><i></i></span>
+      </div>
+
+      <div class="phrase reveal d4" id="phrase"></div>
+
+      <p class="phrase-hint reveal d5" id="hint">
+        Kliknij <em style="color:var(--amber);font-style:normal">Powtórz</em>, aby usłyszeć godzinę po polsku.
+        <span id="nextInfo" style="display:block;margin-top:0.4rem;font-style:normal;font-family:'JetBrains Mono',monospace;font-size:0.72rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);"></span>
+      </p>
+    </section>
+  </main>
+
+  <!-- CONTROLS -->
+  <section class="controls reveal d5">
+    <div class="field">
+      <label for="voice">Głos lektora</label>
+      <select id="voice"></select>
+    </div>
+
+    <div class="field">
+      <label>Format godziny</label>
+      <div class="seg" role="tablist">
+        <button data-mode="12" class="on">12h · pierwsza</button>
+        <button data-mode="24">24h · trzynasta</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Zapowiedź głosowa</label>
+      <select id="interval">
+        <option value="0">Wyłączona</option>
+        <option value="1" selected>Co minutę</option>
+        <option value="5">Co 5 minut</option>
+        <option value="10">Co 10 minut</option>
+        <option value="15">Co kwadrans</option>
+        <option value="30">Co pół godziny</option>
+        <option value="60">Co godzinę (o pełnej)</option>
+      </select>
+    </div>
+
+    <button class="speak-btn" id="speakBtn">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      <span>Powtórz teraz</span>
+    </button>
+  </section>
+
+  <footer>
+    <span>Polski · Web Speech API</span>
+    <span>Godzina strefowa: <em id="tz"></em></span>
+  </footer>
+
+</div>
+
+<!-- HELP MODAL -->
+<div class="backdrop" id="helpBackdrop" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="panel">
+    <button class="close" id="helpClose" aria-label="Zamknij">×</button>
+    <h2 id="helpTitle">Jak zainstalować zegar jako aplikację</h2>
+    <p class="lead">Instalacja sprawia, że zegar działa w osobnym oknie, szybciej się uruchamia i łatwiej go włączyć.</p>
+
+    <div class="plat">
+      <h3>Android · Chrome, Edge, Samsung Internet</h3>
+      <ol>
+        <li>Stuknij przycisk <strong>Zainstaluj aplikację</strong> u góry strony.</li>
+        <li>Jeśli się nie pojawił, otwórz menu przeglądarki (trzy kropki) → <strong>Zainstaluj aplikację</strong> lub <strong>Dodaj do ekranu głównego</strong>.</li>
+        <li>Ikona zegara pojawi się na pulpicie telefonu.</li>
+      </ol>
+    </div>
+
+    <div class="plat">
+      <h3>iPhone / iPad · Safari</h3>
+      <ol>
+        <li>Stuknij przycisk <strong>Udostępnij</strong> (kwadrat ze strzałką w górę) w pasku dolnym.</li>
+        <li>Przewiń i wybierz <strong>Do ekranu początkowego</strong>.</li>
+        <li>Potwierdź nazwę i stuknij <strong>Dodaj</strong>.</li>
+      </ol>
+    </div>
+
+    <div class="plat">
+      <h3>Komputer · Chrome, Edge</h3>
+      <ol>
+        <li>W pasku adresu po prawej pojawia się ikona <strong>⊕</strong> (instalacja) — kliknij ją.</li>
+        <li>Lub użyj przycisku <strong>Zainstaluj aplikację</strong> u góry strony.</li>
+        <li>Aplikacja otworzy się w osobnym oknie jak zwykły program.</li>
+      </ol>
+    </div>
+
+    <div class="plat">
+      <h3>Zapowiedź przy zgaszonym ekranie</h3>
+      <ol>
+        <li>Włącz chip <strong>Nie pozwól zasnąć</strong> u góry — ekran nie zgaśnie, a zegar będzie mówił według harmonogramu.</li>
+        <li>Na <strong>Androidzie</strong> jako zainstalowana aplikacja zegar mówi również z wygaszonym ekranem (przy włączonej Media Session).</li>
+        <li>Na <strong>iOS</strong> system wyłącza syntezę mowy po zablokowaniu ekranu — <strong>blokada wygaszania</strong> jest tu jedynym pewnym rozwiązaniem.</li>
+      </ol>
+    </div>
+
+    <p class="notice">
+      <strong>Ważne:</strong> pełna instalacja wymaga serwowania plików z serwera (http/https), a nie z dysku.
+      Jeśli klikasz plik bezpośrednio, zegar zadziała, ale przycisk <em>Zainstaluj</em> może się nie pojawić.
+      Zobacz <em>README.md</em> — znajdziesz tam jedną linijkę, jak uruchomić lokalny serwer.
+    </p>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   MÓWIĄCY ZEGAR — logic
+   ========================================================= */
+
+// ——— Polish number / time helpers ———
+const ORD_12 = ["pierwsza","druga","trzecia","czwarta","piąta","szósta",
+                "siódma","ósma","dziewiąta","dziesiąta","jedenasta","dwunasta"];
+const ORD_24 = [...ORD_12,
+                "trzynasta","czternasta","piętnasta","szesnasta","siedemnasta",
+                "osiemnasta","dziewiętnasta","dwudziesta",
+                "dwudziesta pierwsza","dwudziesta druga","dwudziesta trzecia"];
+const JEDN = ["zero","jeden","dwa","trzy","cztery","pięć","sześć","siedem","osiem","dziewięć",
+              "dziesięć","jedenaście","dwanaście","trzynaście","czternaście","piętnaście",
+              "szesnaście","siedemnaście","osiemnaście","dziewiętnaście"];
+const DZIES = ["","","dwadzieścia","trzydzieści","czterdzieści","pięćdziesiąt"];
+
+function cardinal(n) {
+  if (n < 20) return JEDN[n];
+  const d = Math.floor(n / 10), j = n % 10;
+  return j === 0 ? DZIES[d] : DZIES[d] + " " + JEDN[j];
+}
+
+function hourOrdinal(h, mode) {
+  if (mode === "24") {
+    // 0 → "dwudziesta czwarta" isn't in list; treat 0 as 24
+    return h === 0 ? "dwudziesta czwarta" : ORD_24[h - 1] || ORD_24[0];
+  }
+  // 12h
+  let h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return ORD_12[h12 - 1];
+}
+
+function buildPhrase(h, m, mode) {
+  const hourStr = "godzina " + hourOrdinal(h, mode);
+  if (m === 0) return hourStr;
+  return hourStr + " " + cardinal(m);
+}
+
+// ——— DOM refs ———
+const $hh = document.getElementById('hh');
+const $mm = document.getElementById('mm');
+const $ss = document.getElementById('ss');
+const $period = document.getElementById('period');
+const $progress = document.getElementById('progress');
+const $phrase = document.getElementById('phrase');
+const $date = document.getElementById('date');
+const $weekday = document.getElementById('weekday');
+const $tz = document.getElementById('tz');
+const $speaker = document.getElementById('speaker');
+const $voice = document.getElementById('voice');
+const $speakBtn = document.getElementById('speakBtn');
+const $interval = document.getElementById('interval');
+const $nextInfo = document.getElementById('nextInfo');
+const $segButtons = document.querySelectorAll('.seg [data-mode]');
+
+// ——— State ———
+let mode = "12";
+let announceInterval = 1;  // minutes; 0 = off
+let lastAnnouncedMinute = -1;
+let voices = [];
+let chosenVoice = null;
+
+// ——— Voice selection ———
+function pickBestPolishVoice(list) {
+  const pl = list.filter(v => /pl|polish/i.test(v.lang) || /polish|zosia|paulina|ewa|agnieszka|krzysztof|adam/i.test(v.name));
+  if (pl.length === 0) return null;
+  // prefer Google, then natural sounding, then anything Polish
+  const priority = [
+    /google.*polish/i,
+    /microsoft.*zofia|microsoft.*paulina|microsoft.*agnieszka/i,
+    /natural|online|neural/i,
+    /pl-PL/i,
+    /./
+  ];
+  for (const pat of priority) {
+    const hit = pl.find(v => pat.test(v.name) || pat.test(v.lang));
+    if (hit) return hit;
+  }
+  return pl[0];
+}
+
+function loadVoices() {
+  voices = speechSynthesis.getVoices();
+  $voice.innerHTML = '';
+
+  const pl = voices.filter(v => /^pl/i.test(v.lang));
+  const others = voices.filter(v => !/^pl/i.test(v.lang));
+
+  if (pl.length) {
+    const g1 = document.createElement('optgroup');
+    g1.label = 'Polskie głosy';
+    pl.forEach(v => {
+      const o = document.createElement('option');
+      o.value = v.name;
+      o.textContent = `${v.name} — ${v.lang}`;
+      g1.appendChild(o);
+    });
+    $voice.appendChild(g1);
+  }
+  if (others.length) {
+    const g2 = document.createElement('optgroup');
+    g2.label = 'Pozostałe (mogą brzmieć nienaturalnie)';
+    others.slice(0, 40).forEach(v => {
+      const o = document.createElement('option');
+      o.value = v.name;
+      o.textContent = `${v.name} — ${v.lang}`;
+      g2.appendChild(o);
+    });
+    $voice.appendChild(g2);
+  }
+
+  const best = pickBestPolishVoice(voices);
+  if (best) {
+    chosenVoice = best;
+    $voice.value = best.name;
+  } else if (voices.length) {
+    chosenVoice = voices[0];
+    $voice.value = voices[0].name;
+  }
+}
+
+$voice.addEventListener('change', () => {
+  chosenVoice = voices.find(v => v.name === $voice.value) || null;
+});
+
+if ('speechSynthesis' in window) {
+  loadVoices();
+  speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+// ——— Speak ———
+function speak(text) {
+  if (!('speechSynthesis' in window)) return;
+  try { speechSynthesis.cancel(); } catch(e) {}
+
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'pl-PL';
+  if (chosenVoice) u.voice = chosenVoice;
+  u.rate = 0.95;
+  u.pitch = 1.0;
+  u.volume = 1.0;
+
+  u.onstart = () => $speaker.classList.add('on');
+  u.onend = u.onerror = () => $speaker.classList.remove('on');
+
+  // word highlighting via boundary events (not all engines fire this)
+  const words = $phrase.querySelectorAll('.w');
+  let idx = 0;
+  words.forEach(w => w.classList.remove('active', 'spoken'));
+
+  u.onboundary = (e) => {
+    if (e.name !== 'word') return;
+    if (idx > 0) words[idx - 1]?.classList.add('spoken');
+    words[idx - 1]?.classList.remove('active');
+    words[idx]?.classList.add('active');
+    idx++;
+  };
+  u.onend = () => {
+    $speaker.classList.remove('on');
+    words.forEach(w => { w.classList.remove('active'); w.classList.add('spoken'); });
+  };
+
+  speechSynthesis.speak(u);
+}
+
+// ——— Render ———
+function renderPhrase(h, m) {
+  const text = buildPhrase(h, m, mode);
+  $phrase.innerHTML = '';
+  text.split(' ').forEach((w, i) => {
+    const span = document.createElement('span');
+    span.className = 'w';
+    span.textContent = w;
+    $phrase.appendChild(span);
+    if (i < text.split(' ').length - 1) $phrase.appendChild(document.createTextNode(' '));
+  });
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+const WEEKDAYS = ['niedziela','poniedziałek','wtorek','środa','czwartek','piątek','sobota'];
+const MONTHS = ['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','września','października','listopada','grudnia'];
+
+function tick() {
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const s = now.getSeconds();
+
+  let displayH = h;
+  if (mode === "12") {
+    displayH = h % 12 || 12;
+    $period.textContent = h < 12 ? 'AM' : 'PM';
+    $period.style.display = '';
+  } else {
+    $period.style.display = 'none';
+  }
+
+  $hh.textContent = pad(displayH);
+  $mm.textContent = pad(m);
+  $ss.textContent = pad(s);
+  $progress.style.setProperty('--pct', `${(s / 60) * 100}%`);
+
+  // render phrase only when minute changes (smooth)
+  if (m !== lastAnnouncedMinute || $phrase.children.length === 0) {
+    renderPhrase(h, m);
+
+    if (m !== lastAnnouncedMinute && lastAnnouncedMinute !== -1
+        && announceInterval > 0 && m % announceInterval === 0) {
+      speak(buildPhrase(h, m, mode));
+    }
+    lastAnnouncedMinute = m;
+  }
+
+  updateNextInfo(h, m, s);
+
+  // date + weekday
+  $date.textContent = `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+  $weekday.textContent = WEEKDAYS[now.getDay()];
+  $tz.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+// ——— Controls ———
+$segButtons.forEach(b => {
+  b.addEventListener('click', () => {
+    $segButtons.forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    mode = b.dataset.mode;
+    const now = new Date();
+    renderPhrase(now.getHours(), now.getMinutes());
+    tick();
+  });
+});
+
+$interval.addEventListener('change', () => {
+  announceInterval = parseInt($interval.value, 10) || 0;
+  const now = new Date();
+  updateNextInfo(now.getHours(), now.getMinutes(), now.getSeconds());
+});
+
+function updateNextInfo(h, m, s) {
+  if (announceInterval === 0) {
+    $nextInfo.textContent = '· Auto-zapowiedź wyłączona';
+    return;
+  }
+  // minutes until next announcement boundary
+  const remainder = m % announceInterval;
+  let minsToNext = remainder === 0 ? announceInterval : announceInterval - remainder;
+  // if we're inside current minute (seconds > 0) and remainder is 0, we already announced this minute; next is full interval away
+  const secsToNext = minsToNext * 60 - s;
+  const mm = Math.floor(secsToNext / 60);
+  const ss = secsToNext % 60;
+
+  // show target time too
+  const target = new Date();
+  target.setSeconds(0, 0);
+  target.setMinutes(target.getMinutes() + minsToNext);
+  const hh = String(target.getHours()).padStart(2, '0');
+  const mmS = String(target.getMinutes()).padStart(2, '0');
+
+  const countdown = mm > 0 ? `${mm} min ${String(ss).padStart(2,'0')} s` : `${ss} s`;
+  $nextInfo.textContent = `· Następna zapowiedź o ${hh}:${mmS} (za ${countdown})`;
+}
+
+$speakBtn.addEventListener('click', () => {
+  const now = new Date();
+  renderPhrase(now.getHours(), now.getMinutes());
+  speak(buildPhrase(now.getHours(), now.getMinutes(), mode));
+});
+
+// ——— Init ———
+tick();
+setInterval(tick, 1000);
+
+/* =========================================================
+   PWA — install, wake lock, media session, background audio
+   ========================================================= */
+
+// ——— Service Worker ———
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => {
+      console.info('SW registration skipped:', err.message);
+    });
+  });
+}
+
+// ——— Install prompt ———
+const $installChip = document.getElementById('installChip');
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  $installChip.hidden = false;
+});
+
+$installChip.addEventListener('click', async () => {
+  if (!deferredPrompt) {
+    // No prompt available — show help instead
+    openHelp();
+    return;
+  }
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  if (outcome === 'accepted') {
+    $installChip.hidden = true;
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  $installChip.hidden = true;
+  deferredPrompt = null;
+});
+
+// If already running as installed PWA, hide install chip
+if (window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true) {
+  $installChip.hidden = true;
+}
+
+// ——— Help modal ———
+const $helpChip = document.getElementById('helpChip');
+const $helpBackdrop = document.getElementById('helpBackdrop');
+const $helpClose = document.getElementById('helpClose');
+
+function openHelp() { $helpBackdrop.classList.add('open'); }
+function closeHelp() { $helpBackdrop.classList.remove('open'); }
+
+$helpChip.addEventListener('click', openHelp);
+$helpClose.addEventListener('click', closeHelp);
+$helpBackdrop.addEventListener('click', (e) => {
+  if (e.target === $helpBackdrop) closeHelp();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeHelp();
+});
+
+// ——— Wake Lock (keeps screen awake) ———
+const $wakeChip = document.getElementById('wakeChip');
+const $wakeLbl = document.getElementById('wakeLbl');
+let wakeLock = null;
+let wakeWanted = false;
+
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) {
+    $wakeLbl.textContent = 'Niedostępne';
+    $wakeChip.disabled = true;
+    return false;
+  }
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => {
+      // released (e.g., tab hidden) — try to re-acquire when visible again
+      if (wakeWanted && document.visibilityState === 'visible') {
+        requestWakeLock();
+      }
+    });
+    $wakeChip.classList.add('on');
+    $wakeLbl.textContent = 'Ekran nie śpi';
+    return true;
+  } catch (err) {
+    console.warn('Wake Lock failed:', err);
+    $wakeLbl.textContent = 'Błąd blokady';
+    return false;
+  }
+}
+
+async function releaseWakeLock() {
+  if (wakeLock) {
+    try { await wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+  }
+  $wakeChip.classList.remove('on');
+  $wakeLbl.textContent = 'Ekran śpi';
+}
+
+$wakeChip.addEventListener('click', async () => {
+  wakeWanted = !wakeWanted;
+  if (wakeWanted) await requestWakeLock();
+  else await releaseWakeLock();
+});
+
+// Re-acquire wake lock when returning to the tab
+document.addEventListener('visibilitychange', () => {
+  if (wakeWanted && document.visibilityState === 'visible' && !wakeLock) {
+    requestWakeLock();
+  }
+});
+
+// ——— Silent audio loop (helps keep audio context alive on mobile) ———
+// A 1-second silent WAV base64-encoded.
+let keepAliveStarted = false;
+function startKeepAlive() {
+  if (keepAliveStarted) return;
+  keepAliveStarted = true;
+  try {
+    const silent = new Audio(
+      'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+Pwtmk'
+      + 'cBjuS1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjuS1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjuS1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjuS1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjuS1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjuS1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjuS1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+Dyvmwh'
+    );
+    silent.loop = true;
+    silent.volume = 0.0001;
+    silent.play().catch(() => { keepAliveStarted = false; });
+  } catch (e) { keepAliveStarted = false; }
+}
+
+// ——— Media Session (tells OS we're a media app) ———
+if ('mediaSession' in navigator) {
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: 'Mówiący Zegar',
+    artist: 'Zegar po polsku',
+    album: 'Na żywo',
+    artwork: [
+      { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
+      { src: 'icon-512.png', sizes: '512x512', type: 'image/png' }
+    ]
+  });
+
+  navigator.mediaSession.setActionHandler('play', () => {
+    const now = new Date();
+    renderPhrase(now.getHours(), now.getMinutes());
+    speak(buildPhrase(now.getHours(), now.getMinutes(), mode));
+  });
+  navigator.mediaSession.setActionHandler('pause', () => {
+    try { speechSynthesis.cancel(); } catch (e) {}
+  });
+  navigator.mediaSession.playbackState = 'playing';
+}
+
+// Start silent keep-alive + mark playbackState on first user gesture (required by autoplay policy)
+function armBackground() {
+  startKeepAlive();
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.playbackState = 'playing';
+  }
+  document.removeEventListener('click', armBackground);
+  document.removeEventListener('touchstart', armBackground);
+  document.removeEventListener('keydown', armBackground);
+}
+document.addEventListener('click', armBackground, { once: false });
+document.addEventListener('touchstart', armBackground, { once: false });
+document.addEventListener('keydown', armBackground, { once: false });
+
+// On iOS, detect when running as installed standalone and nudge user to enable wake lock
+if (window.navigator.standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches) {
+  // Suggest wake lock after a short delay on first run as installed app
+  setTimeout(() => {
+    if (!wakeWanted && announceInterval > 0) {
+      // Gentle visual hint — pulse the wake chip briefly
+      $wakeChip.animate(
+        [{ boxShadow: '0 0 0 0 rgba(244,167,55,0.7)' },
+         { boxShadow: '0 0 0 12px rgba(244,167,55,0)' },
+         { boxShadow: '0 0 0 0 rgba(244,167,55,0)' }],
+        { duration: 1400, iterations: 3 }
+      );
+    }
+  }, 2000);
+}
+</script>
+</body>
+</html>
